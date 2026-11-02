@@ -6,6 +6,7 @@
 //     [--backup user|managed [--outside] [--safe-mode] [--allow-managed-file]]
 //     [--org [--observe] | --guarded [--hold]] --allow-managed-file
 //     --guarded --login team|enterprise [--hold]
+//     --put-back on|off
 //
 // Exit codes: 0 pass, 1 leak (or a blind baseline), 2 invalid run or bad usage.
 
@@ -20,7 +21,7 @@ import { formatReport } from './report.ts'
 import { managedFile, type ManagedFile } from './managed-file.ts'
 import { GUARDED_OPEN, ORG_SCENARIOS, buildMarketplaceFolder, guardedHoldScenarios, guardedScenarios, orgManagedContent } from './org.ts'
 import { managedFileContent } from './fixtures/backup-settings.ts'
-import { BACKUP_INSIDE, BACKUP_ONLY, BACKUP_OUTSIDE, SCENARIOS, STORE_SCENARIOS } from './scenarios.ts'
+import { BACKUP_INSIDE, BACKUP_ONLY, BACKUP_OUTSIDE, PUT_BACK_SCENARIOS, SCENARIOS, STORE_SCENARIOS } from './scenarios.ts'
 
 const REPO = path.join(import.meta.dirname, '..', '..')
 
@@ -45,6 +46,7 @@ const USAGE = `usage: node tools/leak-test/run.ts [options]
                       and those must leak while every other door stays clean
   --hold              with --guarded: on_check_failure is hold (in the managed file, or the user settings with --login), and those doors must be refused instead
   --login <plan>      with --guarded: team or enterprise. A made-up login seats the guard instead of a managed file, so nothing on the machine changes
+  --put-back <on|off> run every door, and the put-back doors, with the developer's put-back choice written into each run's config folder (D-096)
   --observe           with --org: the managed settings set mode: observe, so every fake must be seen and the plugin's log must say it would have hidden them
 scenarios: ${SCENARIOS.map(s => s.name).join(', ')}`
 
@@ -103,6 +105,7 @@ function options(): { kit: KitOptions; report?: string } {
         hold: { type: 'boolean' },
         login: { type: 'string' },
         observe: { type: 'boolean' },
+        'put-back': { type: 'string' },
       },
     }).values
   } catch (e) {
@@ -133,9 +136,14 @@ function options(): { kit: KitOptions; report?: string } {
     if (login === undefined && !v['allow-managed-file']) usage(`--${tier} writes the managed settings file of this machine while it runs; pass --allow-managed-file to allow it`)
     if (v['no-plugin'] || v.plugin) usage(`--${tier} tests the plugin in the repo: pass no --plugin and no --no-plugin`)
   }
+  const putBack = v['put-back']
+  if (putBack !== undefined) {
+    if (putBack !== 'on' && putBack !== 'off') usage(`--put-back must be on or off, not ${putBack}`)
+    if (backup !== undefined || tier !== undefined || v['no-plugin'] || v.outside || v.expect !== 'clean' || process.argv.includes('--expect')) usage('--put-back tests the plugin in the repo with every fake unseen: it does not combine with --backup, --org, --guarded, --no-plugin or --expect')
+  }
   const expect = v.outside || v.observe ? 'leaks' : v.expect
   const names = v.outside ? BACKUP_OUTSIDE : BACKUP_INSIDE
-  const all = tier === 'org' ? SCENARIOS.filter(s => ORG_SCENARIOS.includes(s.name)) : tier === 'guarded' ? (v.hold ? guardedHoldScenarios() : guardedScenarios()) : backup === undefined ? (withStore ? [...SCENARIOS, ...STORE_SCENARIOS] : SCENARIOS) : [...SCENARIOS, ...BACKUP_ONLY].filter(s => names.includes(s.name))
+  const all = putBack !== undefined ? [...SCENARIOS, ...PUT_BACK_SCENARIOS] : tier === 'org' ? SCENARIOS.filter(s => ORG_SCENARIOS.includes(s.name)) : tier === 'guarded' ? (v.hold ? guardedHoldScenarios() : guardedScenarios()) : backup === undefined ? (withStore ? [...SCENARIOS, ...STORE_SCENARIOS] : SCENARIOS) : [...SCENARIOS, ...BACKUP_ONLY].filter(s => names.includes(s.name))
   const main = path.join(REPO, 'plugin', 'backup', 'backup', 'main.js')
   if (backup !== undefined && !fs.existsSync(main)) usage('plugin/backup is not built: run npm run plugin:build')
   const unknown = (v.only ?? []).filter(n => !all.some(s => s.name === n))
@@ -161,6 +169,7 @@ function options(): { kit: KitOptions; report?: string } {
       ...(tier === 'guarded' && !v.hold ? { expectFor: (scenario: string, door: string) => (GUARDED_OPEN.includes(`${scenario}/${door}`) ? 'leaks' as const : 'clean' as const) } : {}),
       ...(tier === 'org' ? { managedFile: orgInstall(v.observe === true), tierProof: 'org' as const, extraEnv: { CLAUDE_CODE_SYNC_PLUGIN_INSTALL: '1' } } : {}),
       ...(v.observe ? { observeProof: true } : {}),
+      ...(putBack !== undefined ? { putBack } : {}),
       scenarios: v.only ? all.filter(s => v.only?.includes(s.name)) : all,
       pinned: pinnedVersion(),
       requirePinned: v['require-pinned'] ?? false,

@@ -37,6 +37,14 @@ Run in `observe` mode for a few days and read the log (`<Claude folder>/aegiscon
 
 A resumed session held secrets from before the plugin was installed, and sending them again would leak them. Rotate those secrets. `/redact allow` with no tag lifts the hold for the next message.
 
+## Claude cannot rewrite a config file, or an Edit on a placeholder line fails
+
+That is the default. Claude only sees placeholders, so the overwrite guard refuses a rewrite that would replace a real secret with its placeholder, and an Edit on a placeholder line finds no such text. Ask Claude to change only the lines it needs, or turn on the optional put-back and read its risks first: [personal.md](personal.md#put-secrets-back-optional-off-by-default).
+
+## Put-back is on and a value stayed a placeholder
+
+`/redact put-back` says whether it is on and why. A value is put back only into a file that already holds it, only through Write and Edit, and only as many times as the file held it. It stays a placeholder when the file is new, when Claude wrote the placeholder more times than the file held the value, after `/resume` (this session never read the file), when the value is over 8,192 characters or the list of caught values is full, when the file holds the value in two written forms, or when the rule that found it is set to `warn` or `block`. A screen line and the log say how many were restored and how many were not. If a save replaced a real secret, restore it from git or from `~/.claude/file-history/`.
+
 ## The backup lock does not act
 
 It stands down while the main lock is alive. If doctor says the hooks are missing, run `/redact backup`. It needs Node on the PATH. In Managed mode check that the hooks set `onFailure: "block"`.

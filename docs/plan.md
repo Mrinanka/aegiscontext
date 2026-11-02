@@ -38,7 +38,7 @@ One step = one session: `/plan-step` → approve → build → `/verify` → `/s
 - **Dependencies:**
   - None at runtime.
   - Build and test tools are dev dependencies, pinned with a lockfile.
-- **Testing:** done against a fixed Claude Code version, never just "latest".
+- **Testing:** done against a fixed Claude Code version, never just "latest". One exception: the weekly CI run (step 8) uses the newest version as an early warning. It proves nothing for a release.
 - **CI:** GitHub Actions on macOS, Windows and Linux, with actions pinned to commit IDs (not tags).
 - **Releases:** semantic versions, SHA-256 checksums, and tags signed by the maintainer from `v0.1.0-rc.2` on (D-094).
 - **Fake secrets only:** built at test time from pieces, never written whole in a file.
@@ -220,13 +220,13 @@ Then **Audit 2**.
 
 ## Step 8: Put secrets back and the weekly run
 
-The design is D-096, `proposed` until item 1 passes. It stays off by default.
+The design is D-096, accepted on 2026-11-03 after item 1 passed on 3 systems (spike S7). It stays off by default.
 
 1. **Test first.** Does a rewritten tool input stay out of the next request to the model? If it doesn't, the model would see the real value: stop and redesign before any feature code.
-2. **Then the rules.** Only after item 1 passes: mark D-096 accepted, then change spec §2, §10, §14, §23 and R-09, the "stricter only" lines in the README and `docs/personal.md`, and the disk rule in `CLAUDE.md`.
+2. **Then the rules.** Only after item 1 passes: mark D-096 accepted, then change spec §1, §2, §5.1, §9, §10, §14, §15, §22, §23, R-09, R-11 and the new R-18, the "stricter only" lines in the README and `docs/personal.md`, and the disk rule in `CLAUDE.md`. Done 2026-11-03.
 3. **Restore rule.** A value goes back only into a file that already holds it on disk. Otherwise the placeholder stays, the write succeeds, and a message says how many values could not be restored. Nothing breaks.
 4. **Commands.** `/redact put-back on` and `off`, `/redact put-back` for the state and why, and `--here` for one folder. The choice is kept in the tool's own folder, never in the repo. Claude can't run them (R-16).
-5. **Order, first match wins.** Managed off (it binds with no `locked`); repo off; `--here`; the developer's choice for all projects; repo on, with the notice; default off.
+5. **Order, first match wins** (spec §10): observe mode off; managed off (it binds with no `locked`); repo off; an unreadable choice file off; `--here`; the developer's choice for all projects; repo on, with the notice, if a surface can show it; default off.
 6. **The notice** always shows which repo turned it on, even with `notices: off`. Under `claude -p` nothing can be shown, so a repo's "on" is ignored.
 7. **Main lock only.** The backup lock keeps refusing those writes.
 8. **Docs.** State the risk and recommend keeping it off. Publish the table below, and say that "Developer says" covers the choice for all projects and `--here`.

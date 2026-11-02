@@ -27,7 +27,7 @@ Spec: @docs/spec.md. Plan: @docs/plan.md. Progress: docs/progress.md.
 - If the spec is unclear or seems wrong, stop and ask. Don't guess.
 - TypeScript only. No runtime libraries in the plugin; everything that runs is in this repo.
 - Dev dependencies (build and test tools) are pinned with a lockfile. Don't add one without asking.
-- The tool must never contact the network and must never write a secret to disk unencrypted (logs, reports and temp files included). This rule is about the product. Claude may read official docs online while researching.
+- The tool must never contact the network and must never write a secret to disk unencrypted (logs, reports and temp files included). One exception, only while the optional put-back setting is on (off by default, D-096): the tool may hand Claude Code's own Write or Edit a value to save into a file that already holds it. This rule is about the product. Claude may read official docs online while researching.
 - Code copied from anywhere else must be credited in THIRD_PARTY_LICENSES before it is merged. Today that is only the Gitleaks rules.
 - Cross-platform: the maintainer develops on Windows. Scripts are Node, not bash. Build paths with `path.join`, never hard-coded `/` or `\`.
 

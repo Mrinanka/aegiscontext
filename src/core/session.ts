@@ -23,7 +23,21 @@ import type { SecretEntry } from './store.ts'
 export type Allow = { values: ReadonlySet<string>; patterns: readonly RegExp[] }
 export const NO_ALLOW: Allow = { values: new Set(), patterns: [] }
 
-export type Hit = { ruleId: string; label: string; tag: string; action: Action; kind: string; hint?: string }
+export type Hit = {
+  ruleId: string
+  label: string
+  tag: string
+  action: Action
+  kind: string
+  hint?: string
+  /**
+   * The exact text this hit replaced, and where it began. Only when the caller asked for `sources`, because
+   * it is the real value in whatever written form it had: it is for put-back and nothing else, and must never
+   * reach a log, a message or the host's state (spec §10, D-096).
+   */
+  source?: string
+  at?: number
+}
 
 export type Redacted = {
   text: string
@@ -66,6 +80,8 @@ export type RedactTextOptions = {
   deadline: number
   /** Only look for known secrets again (matcher and decoder), as after a later block caught something. */
   recheck?: boolean
+  /** Give each hit the text it replaced (`Hit.source`). For put-back only. */
+  sources?: boolean
 }
 
 type Secret = { value: string; label: string; ruleId: string; showHint: boolean; kind: 'registered' | 'caught'; action: Action }
@@ -221,6 +237,20 @@ export class Redactor {
   valueOfTag(tag: string): string | undefined {
     for (const [value, t] of this.tags) if (t === tag) return value
     return undefined
+  }
+
+  /**
+   * Makes sure a tagged value stays hidden after put-back has written it into a file (spec §10, D-096). True for a
+   * registered value or one already caught. Otherwise the value becomes a catch, past D-071's filter, because once it
+   * is in the file nothing but the catch list would hide a bare copy of it later. False when it can't be remembered:
+   * over 8,192 characters, under 6, or the catch list is full. Then the caller must not restore it.
+   */
+  keepHidden(tag: string, label = 'secret'): boolean {
+    const value = this.valueOfTag(tag)
+    if (value === undefined) return false
+    if (this.registered.some(r => r.value === value) || this.catches.has(value)) return true
+    this.addCatch(value, label, 'put-back', false, 'hide')
+    return this.catches.has(value)
   }
 
   /** Marks a tagged value harmless for this session (`/redact allow`). False for a tag this session never made. */
@@ -387,11 +417,11 @@ export class Redactor {
 
     // 6 and 7.
     const placeholders = findPlaceholders(text)
-    const { text: out, hits, blocked } = this.apply(text, spans, placeholders)
+    const { text: out, hits, blocked } = this.apply(text, spans, placeholders, o.sources === true)
     return result(out, hits, complete, blocked)
   }
 
-  private apply(text: string, spans: Span[], placeholders: [number, number][]): { text: string; hits: Hit[]; blocked: boolean } {
+  private apply(text: string, spans: Span[], placeholders: [number, number][], sources: boolean): { text: string; hits: Hit[]; blocked: boolean } {
     const hits: Hit[] = []
     const seen = new Set<string>()
     const replace: Span[] = []
@@ -452,7 +482,7 @@ export class Redactor {
       out += text.slice(cursor, start) + placeholderText(primary.label, hint, tag)
       cursor = end
       if (action === 'block') blocked = true
-      hits.push({ ruleId: primary.ruleId, label: primary.label, tag, action, kind: primary.kind, ...(hint === undefined ? {} : { hint }) })
+      hits.push({ ruleId: primary.ruleId, label: primary.label, tag, action, kind: primary.kind, ...(hint === undefined ? {} : { hint }), ...(sources ? { source: text.slice(start, end), at: start } : {}) })
       i = j
     }
     out += text.slice(cursor)

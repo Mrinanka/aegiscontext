@@ -21,6 +21,7 @@ export const DEFAULTS = {
     secret_files: ['.env*'],
     log: { days: 30 },
     locked: [],
+    put_back: { managedOff: false },
 };
 export const ENUMS = {
     mode: ['enforce', 'observe'],
@@ -41,8 +42,8 @@ const STRICT = {
     hints: ['on', 'off'],
 };
 const ACTION_STRICT = ['warn', 'hide', 'block'];
-const LOCK_NAMES = ['mode', 'personal_data', 'outbound', 'on_check_failure', 'media', 'hints', 'notices', 'rules', 'rules.off', 'rules.custom', 'rules.actions', 'allow', 'secret_files', 'log', 'log.days'];
-const KNOWN = new Set([...Object.keys(ENUMS), 'rules', 'allow', 'secret_files', 'log', 'locked']);
+export const LOCK_NAMES = ['mode', 'personal_data', 'outbound', 'on_check_failure', 'media', 'hints', 'notices', 'rules', 'rules.off', 'rules.custom', 'rules.actions', 'allow', 'secret_files', 'log', 'log.days', 'put_back'];
+const KNOWN = new Set([...Object.keys(ENUMS), 'rules', 'allow', 'secret_files', 'log', 'locked', 'put_back']);
 const MAX_ITEMS = 1000;
 const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isString = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max;
@@ -118,6 +119,12 @@ function parseSource(name, raw) {
         else
             bad('log.days', 'must be a whole number of days from 1 to 3650');
     }
+    if ('put_back' in raw) {
+        if (raw.put_back === 'on' || raw.put_back === 'off')
+            patch.putBack = raw.put_back;
+        else
+            bad('put_back', 'must be one of on, off');
+    }
     if ('locked' in raw) {
         if (name !== 'policy')
             notices.push(`${name}: "locked" is ignored; only managed settings can lock`);
@@ -128,7 +135,7 @@ function parseSource(name, raw) {
     }
     return { patch, errors, notices };
 }
-const clone = (s) => ({ ...s, rules: { off: [...s.rules.off], custom: [...s.rules.custom], actions: { ...s.rules.actions } }, allow: [...s.allow], secret_files: [...s.secret_files], log: { ...s.log }, locked: [...s.locked] });
+const clone = (s) => ({ ...s, rules: { off: [...s.rules.off], custom: [...s.rules.custom], actions: { ...s.rules.actions } }, allow: [...s.allow], secret_files: [...s.secret_files], log: { ...s.log }, locked: [...s.locked], put_back: { ...s.put_back } });
 function expandLocks(names) {
     const out = new Set();
     for (const n of names) {
@@ -218,6 +225,25 @@ export function resolveSettings(sources, o = {}) {
         if (patch.secret_files !== undefined && !skip('secret_files')) {
             s.secret_files = strictOnly ? [...new Set([...s.secret_files, ...patch.secret_files])] : patch.secret_files;
         }
+        // put_back (spec §10, D-096) is the one setting with its own rules: a managed off binds with no `locked`, a managed
+        // on and any user value are ignored, and a project may say on, but an off from any project source wins.
+        if (patch.putBack !== undefined) {
+            if (name === 'policy') {
+                if (patch.putBack === 'off')
+                    s.put_back.managedOff = true;
+                else
+                    notices.push('policy: put_back on ignored (an organization can only turn put-back off)');
+            }
+            else if (name === 'user') {
+                notices.push('user: put_back ignored here; turn put-back on or off with /redact put-back');
+            }
+            else if (locks.has('put_back')) {
+                notices.push(`${name}: put_back is locked by the organization and was left as it is`);
+            }
+            else if (s.put_back.repo !== 'off') {
+                s.put_back.repo = patch.putBack;
+            }
+        }
         if (patch.days !== undefined && !skip('log.days')) {
             if (strictOnly)
                 refuse('log.days');
@@ -228,6 +254,8 @@ export function resolveSettings(sources, o = {}) {
     if (policy) {
         apply('policy', policy, false);
         s.locked = policy.locked ?? [];
+        if (locks.has('put_back'))
+            s.put_back.managedOff = true;
     }
     const user = parsed.get('user');
     if (user)

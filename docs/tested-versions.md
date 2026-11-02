@@ -10,6 +10,10 @@ AegisContext hooks into Claude Code, so it is only as good as the Claude Code it
 | **2.1.309** (the `stable` channel when this was checked) | CLI, on Windows | The full kit by hand, from a scratch install, with the plugin: the baseline saw 98 of 98 fakes and the plugin run saw 0 of 105, at 14 doors and the registered-value door. Not run in CI, and not run on macOS or Linux. |
 | **2.1.314** | The VS Code extension, which runs its own copy of Claude Code | Step 0 check 0.10, by hand on Windows: hiding works in the panel. Not run by the kit. |
 
+Step 8 added `leak-test:put-back` and `leak-test:put-back-off` (20 doors each, 0 of 140 planted fakes seen on 2.1.316 on Windows when they were built) and the rewrite test (`tests/rewrite-real.test.ts`, which showed on macOS, Windows and Linux that a mod's rewrite of a Write or Edit input reaches the tool and not the next request). CI runs both on all three systems.
+
+The **weekly run** (`.github/workflows/weekly.yml`) tries the newest Claude Code every week as an early warning. Its result is not a tested version: a version is listed here only after a release's own CI has passed on it.
+
 The pinned version is the one in `tools/leak-test/claude-pin/package-lock.json`. A newer Claude Code keeps working, with a one-line warning at session start; run `/redact self-check` and, if you can, the kit.
 
 ## Not yet checked

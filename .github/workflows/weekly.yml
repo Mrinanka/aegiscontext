@@ -1,0 +1,90 @@
+name: Weekly (newest Claude Code)
+
+# An early warning, not a release proof (plan step 8, item 9). Once a week it runs the kit and the plugin tests against
+# the NEWEST Claude Code, so a change that breaks hiding is seen before anyone installs the update. A release is tested
+# on the pinned version (ci.yml), never on this.
+#
+# `schedule` and `workflow_dispatch` only work for the default branch (`release`). The `push` trigger on this file's own
+# path is how it is proven on a step branch. GitHub switches a scheduled workflow off after 60 days without repository
+# activity (docs: "events that trigger workflows"), and a failed scheduled run notifies whoever last changed the cron line.
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/weekly.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  newest:
+    name: newest Claude Code (${{ matrix.os }})
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # The install scripts stay off, as for the pin: the package's own bin is a stub, so the platform binary is run directly.
+      - name: Install the newest Claude Code
+        shell: bash
+        run: |
+          mkdir "$RUNNER_TEMP/claude-newest"
+          cd "$RUNNER_TEMP/claude-newest"
+          echo '{"private":true}' > package.json
+          npm install --ignore-scripts --no-audit --no-fund @anthropic-ai/claude-code@latest
+          node -e '
+            const fs = require("node:fs"), path = require("node:path")
+            const exe = process.platform === "win32" ? "claude.exe" : "claude"
+            const bin = path.join(process.cwd(), "node_modules", "@anthropic-ai", `claude-code-${process.platform}-${process.arch}`, exe)
+            if (!fs.existsSync(bin)) { console.error("no platform binary at " + bin); process.exit(1) }
+            fs.appendFileSync(process.env.GITHUB_ENV, "CLAUDE_NEWEST=" + bin + "\n")
+            fs.appendFileSync(process.env.GITHUB_PATH, path.dirname(bin) + "\n")
+          '
+      - name: Which version is this?
+        shell: bash
+        run: '"$CLAUDE_NEWEST" --version'
+      - name: Validate the plugin
+        run: claude plugin validate ./plugin
+      - name: Plugin tests
+        run: claude plugin test ./plugin
+      - name: Leak test baseline (the kit can still see)
+        run: npm run leak-test:baseline -- --claude "$CLAUDE_NEWEST"
+        shell: bash
+      - name: Rewrite test (a mod rewrites a Write and an Edit before the tool runs)
+        run: node --test tests/rewrite-real.test.ts
+        env:
+          AEGIS_CLAUDE: ${{ env.CLAUDE_NEWEST }}
+      - name: Leak test, every door
+        run: npm run leak-test -- --claude "$CLAUDE_NEWEST"
+        shell: bash
+      - name: Leak test, put-back on
+        run: npm run leak-test:put-back -- --claude "$CLAUDE_NEWEST"
+        shell: bash
+      - name: Leak test, put-back off
+        run: npm run leak-test:put-back-off -- --claude "$CLAUDE_NEWEST"
+        shell: bash
+      - name: Leak test, backup lock
+        run: npm run leak-test:backup -- --claude "$CLAUDE_NEWEST"
+        shell: bash
+      - name: Leak test, backup lock limits
+        run: npm run leak-test:backup-limits -- --claude "$CLAUDE_NEWEST"
+        shell: bash
+      - name: Leak test, user plugin under a Team login
+        run: npm run leak-test:guarded-login -- --claude "$CLAUDE_NEWEST"
+        shell: bash

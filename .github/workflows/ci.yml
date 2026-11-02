@@ -80,6 +80,12 @@ jobs:
       - name: Leak test, every door
         if: runner.os != 'Linux'
         run: npm run leak-test -- --require-pinned --allow-real-store
+      # Step 8: put-back on, every door must stay clean and the file must come out whole after a Write, an Edit through a
+      # placeholder and a subagent's write (and stay as it was after a failed Edit or a new file). Off: the guard refuses.
+      - name: Leak test, put-back on
+        run: npm run leak-test:put-back -- --require-pinned
+      - name: Leak test, put-back off
+        run: npm run leak-test:put-back-off -- --require-pinned
       # Step 5 "Done when": the backup lock, run as settings hooks with the plugin not loaded. Inside its limits no
       # fake may be seen; outside them every fake must be seen, so the list of limits is proven, not claimed.
       - name: Leak test, backup lock

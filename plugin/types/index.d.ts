@@ -44,6 +44,10 @@ declare module 'claude-code' {
       composeSeen: boolean
       /** The built-in guard warning has been shown this session. */
       guardWarned: boolean
+      /** The notice that a project turned put-back on has been shown this session (spec §10). */
+      putBackNoticed: boolean
+      /** Whether this session's instructions carry the put-back note, fixed at the first compose so the thread's prompt cache holds. */
+      putBackNote: boolean
     }
   }
 }

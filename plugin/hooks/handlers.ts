@@ -13,7 +13,8 @@ import { now } from './lib/core/decoder.ts'
 import type { LogEntry } from './lib/core/log.ts'
 import type { Hit } from './lib/core/session.ts'
 import { redactRow, withheldRow, type RowMessage } from './lib/core/rows.ts'
-import { PLACEHOLDER_NOTE } from './lib/core/note.ts'
+import { PLACEHOLDER_NOTE, PUT_BACK_NOTE, PUT_BACK_NOTE_ID } from './lib/core/note.ts'
+import { putBackNoteOn } from './putback.ts'
 import { pruneLogs, writeLog } from './log-file.ts'
 import { markEnded, markRunning } from './marker.ts'
 import { failureMode, fileOfTool, ready, rememberToolFile, saveCatches, type Runtime } from './runtime.ts'
@@ -268,6 +269,15 @@ export async function failedAttachment($: EngineInterface, e: Args<'prompt.attac
 
 export { PLACEHOLDER_NOTE }
 
+/** The extra note, only in a session that started with put-back on. A failure here must never cost the main note. */
+export async function putBackSections($: EngineInterface): Promise<{ id: string; text: string; scope: 'session' }[]> {
+  try {
+    return (await putBackNoteOn($, await ready($))) ? [{ id: PUT_BACK_NOTE_ID, text: PUT_BACK_NOTE, scope: 'session' as const }] : []
+  } catch {
+    return []
+  }
+}
+
 export async function failedCompose($: EngineInterface, kind: string): Promise<void> {
   warn($, 'compose', 'could not add its note about hidden values to the instructions')
   await logFailure($, 'compose', 'compose', kind, false)
@@ -311,7 +321,7 @@ export const OBSERVE_BANNER = 'OBSERVE MODE, secrets are NOT being hidden'
 /** A command that can't be registered must never stop a row or a prompt being cleaned. */
 export async function registerCommands($: EngineInterface): Promise<void> {
   try {
-    await $.command.register({ name: COMMAND, description: 'aegiscontext: status, add, learn, remove, allow, self-check, doctor', argumentHint: '[add|learn|remove|allow|self-check|doctor]' })
+    await $.command.register({ name: COMMAND, description: 'aegiscontext: status, add, learn, remove, allow, put-back, self-check, doctor', argumentHint: '[add|learn|remove|allow|put-back|self-check|doctor]' })
   } catch {
     warn($, 'command', 'could not register /redact; hiding carries on')
   }

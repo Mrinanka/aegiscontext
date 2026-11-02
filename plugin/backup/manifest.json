@@ -35,8 +35,8 @@
     "core/outbound.js": "11631fcc97a0628cad04862f73fdcfb1a295d8235eb00f526ae752c4ae63b595",
     "core/placeholder.js": "736eee551997e4f01c5ecd917d780dd857d7efbcae957e6c1b80ac6cf2cc5265",
     "core/protect.js": "623802a78c4dc5880fba12e9ac108993dc76ac88b05390950b0f2f41f37891fe",
-    "core/session.js": "a2a9e6129d0a0e4a69993d21d0d6124a0779c3d33ab298404c3cd5b238130e2b",
-    "core/settings.js": "26588de7ffd232fec3529de7b465c3673c3d371e2db30b4e5a87670c153a0ab7",
+    "core/session.js": "7cd18bc23b70172b60cc696d8f0a4680449a94dc7775a57c7d6513c985ef0a0f",
+    "core/settings.js": "01fe0d4c31409bd119a378aa62cc88098896ef606ffbc935be98d88d3ffcd0a7",
     "core/store.js": "8d5d4c81c5d6130673a39d4b7eecaa8bdbe39db593072a9d6bd6afc27dfbf435",
     "package.json": "5a065fe7d8eab2a582f428e11c2ea63aaf70607a54f69cfd5c711b5c53d91b32"
   }

@@ -7,9 +7,11 @@ import { now } from './lib/core/decoder.ts'
 import { applyEdit, checkOverwrite, placeholdersIn } from './lib/core/guard.ts'
 import { isChecked, outboundText, outboundVerdict } from './lib/core/outbound.ts'
 import { blockedSettingsChange, isProtected, isSettingsFile, shellChangesProtected, type Roots } from './lib/core/protect.ts'
+import { restoreInput } from './lib/core/putback.ts'
 import type { Hit } from './lib/core/session.ts'
 import { writeLog } from './log-file.ts'
 import { configDir, dataDir } from './paths.ts'
+import { putBackNow, repoNotice } from './putback.ts'
 import { ready, type Runtime } from './runtime.ts'
 import { addPlaced, guardPass, setGuardPass } from './state.ts'
 import { warn } from './warn.ts'
@@ -99,7 +101,34 @@ async function outbound($: EngineInterface, rt: Runtime, tool: string, e: Input)
   return `this ${tool} call holds a hidden value (${named(hits)}), so it was stopped. Ask the user to run it themselves, or to run /redact allow with the tag.`
 }
 
-async function guard($: EngineInterface, rt: Runtime, tool: string, e: Input): Promise<string | undefined> {
+const shortName = (name: string): string => name.slice(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1)
+
+/**
+ * Put-back (spec §10, D-096): the changes that put a hidden value back into a Write or Edit input, only where the
+ * file on disk already holds it. Nothing is changed when it is off, for any other tool, or when nothing can be restored.
+ */
+async function restore($: EngineInterface, rt: Runtime, tool: string, e: Input, deadline: number): Promise<{ changes?: Input; on: boolean }> {
+  if (tool !== 'Write' && tool !== 'Edit') return { on: false }
+  const decision = await putBackNow($, rt)
+  await repoNotice($, rt, decision)
+  if (!decision.on) return { on: false }
+  const path = pathOf(tool, e)
+  if (!path) return { on: true }
+  const disk = await readIfThere($, path)
+  if (disk === '') return { on: true }
+  if (disk.length > MAX_FILE_CHARS) throw new Error('file too large for put-back')
+  const out = restoreInput(rt.redactor, { tool, file: path, disk, input: e, deadline })
+  if (!out.complete) throw new Error('put-back ran out of time')
+  if (out.restored === 0) return { on: true }
+  const changes: Input = {}
+  for (const key of ['content', 'old_string', 'new_string']) if (out.input[key] !== e[key]) changes[key] = out.input[key]
+  const name = rt.redactor.redactText(path, { deadline: now() + 500 }).text
+  await logEvent($, rt, 'notice', path, `put-back: ${out.restored} restored, ${out.left} left as placeholders`)
+  if (rt.settings.notices === 'on') $.ui.log(`Put-back: restored ${out.restored} hidden value${out.restored === 1 ? '' : 's'} in ${shortName(name)}${out.left > 0 ? `; ${out.left} stayed as placeholders` : ''}.`)
+  return { changes, on: true }
+}
+
+async function guard($: EngineInterface, rt: Runtime, tool: string, e: Input, deadline: number, putBack: boolean): Promise<string | undefined> {
   const path = pathOf(tool, e)
   if (!path) return undefined
   const disk = await readIfThere($, path)
@@ -107,11 +136,19 @@ async function guard($: EngineInterface, rt: Runtime, tool: string, e: Input): P
   if (disk.length > MAX_FILE_CHARS) throw new Error('file too large for the overwrite guard')
   const after = tool === 'Edit' ? applyEdit(disk, text(e.old_string), text(e.new_string), e.replace_all === true) : text(tool === 'Write' ? e.content : e.new_source)
   if (after === undefined) return undefined
-  const out = checkOverwrite(rt.redactor, { path, disk, after, deadline: now() + BUDGET_MS })
+  const out = checkOverwrite(rt.redactor, { path, disk, after, deadline })
   if (!out.complete) throw new Error('overwrite guard ran out of time')
   if (!out.blocked) return undefined
   if (rt.settings.mode === 'observe') {
     await logEvent($, rt, 'notice', path, 'would have blocked: a real secret would be replaced by its placeholder', out.tags[0])
+    return undefined
+  }
+  // The one exception to R-11 (D-096): with put-back on, a Write or Edit goes through and the person is told. A
+  // NotebookEdit is not restored, so its guard still refuses.
+  if (putBack && (tool === 'Write' || tool === 'Edit')) {
+    const name = rt.redactor.redactText(path, { deadline: now() + 500 }).text
+    await logEvent($, rt, 'warn', path, `put-back is on: ${out.tags.length} real value${out.tags.length === 1 ? '' : 's'} replaced by placeholders`, out.tags[0])
+    warn($, 'put-back-lost', `put-back could not restore ${out.tags.length} hidden value${out.tags.length === 1 ? '' : 's'}, so ${out.tags.length === 1 ? 'it was' : 'they were'} replaced by ${out.tags.length === 1 ? 'its placeholder' : 'placeholders'} in ${shortName(name)}. Git, or Claude Code's file backups, can bring ${out.tags.length === 1 ? 'it' : 'them'} back.`)
     return undefined
   }
   const pass = await guardPass($)
@@ -136,9 +173,20 @@ export function clearGuardBlock(): void {
   pendingGuard = undefined
 }
 
-export async function beforeTool($: EngineInterface, tool: string, e: Input): Promise<string | undefined> {
+/**
+ * What to do before a tool runs: refuse it, or let it go, with changes to its input when put-back restored
+ * something. The order is protect, outbound, restore, guard; restore and the guard share one deadline.
+ */
+export async function beforeTool($: EngineInterface, tool: string, e: Input): Promise<{ deny: string } | { changes?: Input }> {
   const rt = await ready($)
-  return (await protect($, rt, tool, e)) ?? (await outbound($, rt, tool, e)) ?? (await guard($, rt, tool, e))
+  const denied = (await protect($, rt, tool, e)) ?? (await outbound($, rt, tool, e))
+  if (denied !== undefined) return { deny: denied }
+  const deadline = now() + BUDGET_MS
+  const restored = await restore($, rt, tool, e, deadline)
+  const sent = restored.changes ? { ...e, ...restored.changes } : e
+  const refused = await guard($, rt, tool, sent, deadline, restored.on)
+  if (refused !== undefined) return { deny: refused }
+  return restored.changes ? { changes: restored.changes } : {}
 }
 
 /** The `ask` setting: a person decides, so this answers at tool.check. */
