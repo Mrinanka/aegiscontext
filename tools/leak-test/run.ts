@@ -4,7 +4,8 @@
 //     [--claude <path>] [--only <scenario>]... [--report <file>]
 //     [--require-pinned] [--scratch <dir>] [--keep]
 //     [--backup user|managed [--outside] [--safe-mode] [--allow-managed-file]]
-//     [--org | --guarded [--hold]] --allow-managed-file
+//     [--org [--observe] | --guarded [--hold]] --allow-managed-file
+//     --guarded --login team|enterprise [--hold]
 //
 // Exit codes: 0 pass, 1 leak (or a blind baseline), 2 invalid run or bad usage.
 
@@ -14,6 +15,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { pinnedVersion, resolveClaude } from './claude-bin.ts'
 import { exitCodeFor, KitError, runKit, type KitOptions } from './kit.ts'
+import { LOGIN_HOSTS, LOGIN_PLANS, type LoginPlan } from './login.ts'
 import { formatReport } from './report.ts'
 import { managedFile, type ManagedFile } from './managed-file.ts'
 import { GUARDED_OPEN, ORG_SCENARIOS, buildMarketplaceFolder, guardedHoldScenarios, guardedScenarios, orgManagedContent } from './org.ts'
@@ -41,7 +43,9 @@ const USAGE = `usage: node tools/leak-test/run.ts [options]
   --org               the organization install: a folder marketplace, the plugin in prependPlugins (every door must be clean)
   --guarded           the plugin as a user plugin on a machine with managed settings: the built-in guard passes some doors over,
                       and those must leak while every other door stays clean
-  --hold              with --guarded: the managed file sets on_check_failure: hold, and those doors must be refused instead
+  --hold              with --guarded: on_check_failure is hold (in the managed file, or the user settings with --login), and those doors must be refused instead
+  --login <plan>      with --guarded: team or enterprise. A made-up login seats the guard instead of a managed file, so nothing on the machine changes
+  --observe           with --org: the managed settings set mode: observe, so every fake must be seen and the plugin's log must say it would have hidden them
 scenarios: ${SCENARIOS.map(s => s.name).join(', ')}`
 
 function usage(message: string): never {
@@ -50,7 +54,7 @@ function usage(message: string): never {
 }
 
 /** The organization install: a folder marketplace on the machine, then the managed file that names it. Both go when the run ends. */
-function orgInstall(): ManagedFile {
+function orgInstall(observe: boolean): ManagedFile {
   // The folder is made at install with a random name (a predictable one in a shared temp folder could be planted
   // by another user), and the managed file that names it is written only after it holds the plugin.
   let parent: string | undefined
@@ -61,7 +65,7 @@ function orgInstall(): ManagedFile {
       parent = fs.mkdtempSync(path.join(os.tmpdir(), 'org market-'))
       const dir = path.join(parent, 'marketplace')
       buildMarketplaceFolder(dir, REPO)
-      file = managedFile(orgManagedContent(dir))
+      file = managedFile({ ...orgManagedContent(dir), ...(observe ? { aegisContext: { mode: 'observe' } } : {}) })
       file.install()
     },
     remove() {
@@ -97,6 +101,8 @@ function options(): { kit: KitOptions; report?: string } {
         org: { type: 'boolean' },
         guarded: { type: 'boolean' },
         hold: { type: 'boolean' },
+        login: { type: 'string' },
+        observe: { type: 'boolean' },
       },
     }).values
   } catch (e) {
@@ -115,12 +121,19 @@ function options(): { kit: KitOptions; report?: string } {
   const tier = v.org ? 'org' : v.guarded ? 'guarded' : undefined
   if (v.org && v.guarded) usage('--org and --guarded are two different runs: pass one')
   if (v.hold && !v.guarded) usage('--hold goes with --guarded')
+  if (v.observe && !v.org) usage('--observe goes with --org')
+  const login = v.login as LoginPlan | undefined
+  if (login !== undefined) {
+    if (!LOGIN_PLANS.includes(login)) usage(`--login must be team or enterprise, not ${login}`)
+    if (!v.guarded) usage('--login goes with --guarded')
+    if (v['allow-managed-file']) usage('--login writes no managed file, so it does not go with --allow-managed-file')
+  }
   if (tier !== undefined) {
     if (backup !== undefined || v.outside || v['safe-mode']) usage('--org and --guarded do not combine with the backup lock options')
-    if (!v['allow-managed-file']) usage(`--${tier} writes the managed settings file of this machine while it runs; pass --allow-managed-file to allow it`)
+    if (login === undefined && !v['allow-managed-file']) usage(`--${tier} writes the managed settings file of this machine while it runs; pass --allow-managed-file to allow it`)
     if (v['no-plugin'] || v.plugin) usage(`--${tier} tests the plugin in the repo: pass no --plugin and no --no-plugin`)
   }
-  const expect = v.outside ? 'leaks' : v.expect
+  const expect = v.outside || v.observe ? 'leaks' : v.expect
   const names = v.outside ? BACKUP_OUTSIDE : BACKUP_INSIDE
   const all = tier === 'org' ? SCENARIOS.filter(s => ORG_SCENARIOS.includes(s.name)) : tier === 'guarded' ? (v.hold ? guardedHoldScenarios() : guardedScenarios()) : backup === undefined ? (withStore ? [...SCENARIOS, ...STORE_SCENARIOS] : SCENARIOS) : [...SCENARIOS, ...BACKUP_ONLY].filter(s => names.includes(s.name))
   const main = path.join(REPO, 'plugin', 'backup', 'backup', 'main.js')
@@ -142,9 +155,12 @@ function options(): { kit: KitOptions; report?: string } {
       ...(backup === undefined ? {} : { backup: { main, where: backup } }),
       ...(v['safe-mode'] ? { safeMode: true } : {}),
       ...(backup === 'managed' ? { managedFile: managedFile(managedFileContent(main)) } : {}),
-      ...(tier === 'guarded' ? { managedFile: managedFile({ aegisContext: v.hold ? { on_check_failure: 'hold' } : {} }), tierProof: 'guarded' as const } : {}),
+      ...(tier === 'guarded' && login === undefined ? { managedFile: managedFile({ aegisContext: v.hold ? { on_check_failure: 'hold' } : {} }) } : {}),
+      ...(tier === 'guarded' ? { tierProof: 'guarded' as const } : {}),
+      ...(login !== undefined ? { fakeLogin: login, expectedHosts: LOGIN_HOSTS, ...(v.hold ? { aegisContext: { on_check_failure: 'hold' } } : {}) } : {}),
       ...(tier === 'guarded' && !v.hold ? { expectFor: (scenario: string, door: string) => (GUARDED_OPEN.includes(`${scenario}/${door}`) ? 'leaks' as const : 'clean' as const) } : {}),
-      ...(tier === 'org' ? { managedFile: orgInstall(), tierProof: 'org' as const, extraEnv: { CLAUDE_CODE_SYNC_PLUGIN_INSTALL: '1' } } : {}),
+      ...(tier === 'org' ? { managedFile: orgInstall(v.observe === true), tierProof: 'org' as const, extraEnv: { CLAUDE_CODE_SYNC_PLUGIN_INSTALL: '1' } } : {}),
+      ...(v.observe ? { observeProof: true } : {}),
       scenarios: v.only ? all.filter(s => v.only?.includes(s.name)) : all,
       pinned: pinnedVersion(),
       requirePinned: v['require-pinned'] ?? false,

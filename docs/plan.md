@@ -27,6 +27,7 @@ One step = one session: `/plan-step` → approve → build → `/verify` → `/s
 | 4 | **Rest of the main lock** | Leak test clean for everything v1 covers; all commands work; `claude plugin validate`/`test` pass |
 | 5 | **Backup lock + tuning** | Safe-mode leak test passes within the backup lock's limits; targets set, written down and met |
 | 6 | **Release** | A newcomer installs and verifies from the README alone. **Audit 2.** |
+| 7 | **Fixes before daily use** (added after `v0.1.0-rc.1`, D-090) | The backup lock's limits name skill text; `/redact remove` works; no doubled name; the login and observe runs pass in CI; `v0.1.0-rc.2` can be tagged. |
 
 **Audits** (steps 3 and 6, before `/ship`): built-in `/security-review` and `/code-review high` on the step's diff.
 

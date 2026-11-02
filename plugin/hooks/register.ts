@@ -14,7 +14,7 @@ import { failureMode } from './runtime.ts'
 import { resumeBlock, safeResumeBlock } from './resume.ts'
 import { afterTool, askReason, beforeTool } from './tools.ts'
 import { drawBanner } from './banner.tsx'
-import { drawAdd, drawLearn } from './panes.tsx'
+import { drawAdd, drawLearn, drawRemove } from './panes.tsx'
 import { checkGuard, markComposeSeen, noteOrigin } from './guard.ts'
 
 /** An answer in place of a request. The engine shows and records what a step streams, never what it returns. */
@@ -154,6 +154,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: 'aegiscontext-add' }, ($, e) => drawAdd($, e))
   on('ui.render', { component: 'Pane', requestId: 'aegiscontext-learn' }, ($, e) => drawLearn($, e))
+  on('ui.render', { component: 'Pane', requestId: 'aegiscontext-remove' }, ($, e) => drawRemove($, e))
   on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => drawBanner($, e, next))
 
   on('session.start', async ($, e, next) => {

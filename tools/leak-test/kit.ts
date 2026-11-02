@@ -24,7 +24,8 @@ import { startTrap, type Attempt } from './trap.ts'
 import { ALLOWED_TOOLS, SCENARIOS, type Ctx, type Run, type Scenario } from './scenarios.ts'
 import type { ClaudeCommand } from './claude-bin.ts'
 import { MANAGED_PROOF_NOTICE, mergeHooks, userSettings } from './fixtures/backup-settings.ts'
-import { tierProblem, warningProblem, type TierMode } from './org.ts'
+import { fakeCredentials, type LoginPlan } from './login.ts'
+import { observeProblem, tierProblem, warningProblem, type TierMode } from './org.ts'
 import type { ManagedFile } from './managed-file.ts'
 import { makeFake, makeWitness, plant, randomSource, type Fake, type FakeKind, type PlantForm } from '../test-sets/fakes.ts'
 
@@ -69,7 +70,8 @@ export type Report = {
   verdict: Verdict
   doors: DoorResult[]
   runs: RunResult[]
-  network: { attempts: Attempt[] }
+  /** `expected` counts the attempts this run allowed (a login run's API host). The proxy refused every one. */
+  network: { attempts: Attempt[]; expected?: string[] }
   /** Requests whose body could not be searched. */
   unreadable: number
   disk: DiskHit[]
@@ -100,6 +102,14 @@ export type KitOptions = {
   expectFor?: (scenario: string, door: string) => 'clean' | 'leaks'
   /** Ask Claude Code for a debug log of every run and require it to prove the tool's tier (see org.ts). */
   tierProof?: TierMode
+  /** A made-up login in the run's own config folder, and no API key, so the plan is what seats the built-in guard. */
+  fakeLogin?: LoginPlan
+  /** Hosts a CONNECT to does not make the run invalid. The proxy still refuses them and the report still prints them. */
+  expectedHosts?: string[]
+  /** Written under the `aegisContext` key of the user settings, for a run with no managed file. */
+  aegisContext?: Record<string, unknown>
+  /** Require the plugin's log to show that observe mode ran (see `observeProblem`). */
+  observeProof?: boolean
 }
 
 const RUN_TIMEOUT_MS = 180_000
@@ -126,12 +136,12 @@ const ENV_KEEP = new Set([
 const inheritedEnv = (): NodeJS.ProcessEnv =>
   Object.fromEntries(Object.entries(process.env).filter(([k]) => ENV_KEEP.has(k.toUpperCase())))
 
-function runEnv(mock: { host: string; port: number }, trap: { host: string; port: number }, configDir: string, extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+function runEnv(mock: { host: string; port: number }, trap: { host: string; port: number }, configDir: string, extra: Record<string, string> = {}, login = false): NodeJS.ProcessEnv {
   const proxy = `http://${trap.host}:${trap.port}`
   return {
     ...inheritedEnv(),
     ANTHROPIC_BASE_URL: `http://${mock.host}:${mock.port}`,
-    ANTHROPIC_API_KEY: 'mock-not-a-key',
+    ...(login ? {} : { ANTHROPIC_API_KEY: 'mock-not-a-key' }),
     CLAUDE_CONFIG_DIR: configDir,
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
@@ -264,7 +274,8 @@ export function writeSettings(s: Scenario, run: Run, base: string, configDir: st
   }
   if (opts.backup?.where === 'user' && !run.withoutPlugin) hooks = mergeHooks(userSettings(opts.backup.main).hooks, hooks)
   const file = path.join(configDir, 'settings.json')
-  if (Object.keys(hooks).length > 0) fs.writeFileSync(file, JSON.stringify({ hooks }))
+  const settings = { ...(Object.keys(hooks).length > 0 ? { hooks } : {}), ...(opts.aegisContext ? { aegisContext: opts.aegisContext } : {}) }
+  if (Object.keys(settings).length > 0) fs.writeFileSync(file, JSON.stringify(settings))
   else fs.rmSync(file, { force: true })
 }
 
@@ -285,6 +296,7 @@ async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; 
   const configDir = path.join(base, 'config')
   fs.mkdirSync(work)
   fs.mkdirSync(configDir)
+  if (opts.fakeLogin) fs.writeFileSync(path.join(configDir, '.credentials.json'), JSON.stringify(fakeCredentials(opts.fakeLogin, Date.now())))
   const doors = plantDoors(s)
   const needles = needlesOf(doors)
   allNeedles.push(...needles)
@@ -310,7 +322,7 @@ async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; 
     for (const [index, run] of s.runs.entries()) {
       writeSettings(s, run, base, configDir, opts)
       const mock = await startLeakMock({ script: run.script(ctx), needles })
-      const env = runEnv(mock, trap, configDir, opts.extraEnv)
+      const env = runEnv(mock, trap, configDir, opts.extraEnv, opts.fakeLogin !== undefined)
       const debugFile = opts.tierProof ? path.join(base, `debug-${index}.log`) : undefined
       const args = runArgs(run.prompt(ctx), run, sessionId, opts.plugin, mcpConfig, opts.safeMode === true, debugFile)
       const outcome = await runClaude(opts.claude, args, work, env, run.stdin?.(ctx), opts.timeoutMs ?? RUN_TIMEOUT_MS)
@@ -321,7 +333,7 @@ async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; 
       }
       if (index >= (s.countFromRun ?? 0) && (mock.records.length > 0 || !heldRe?.test(outcome.stdout))) held = false
       if (opts.tierProof && !run.withoutPlugin) {
-        const problem = debugFile === undefined ? 'no debug file was asked for' : debugProblem(debugFile, opts.tierProof)
+        const problem = debugFile === undefined ? 'no debug file was asked for' : debugProblem(debugFile, opts.tierProof, opts.fakeLogin)
         if (problem) {
           console.error(`${opts.tierProof} run, ${s.name} run ${index}: ${problem}`)
           failed = true
@@ -348,6 +360,11 @@ async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; 
       console.error(`${opts.tierProof} run, ${s.name}: ${shown}`)
       failed = true
     }
+    const observed = opts.observeProof ? observeProblem(pluginLog(configDir)) : undefined
+    if (observed) {
+      console.error(`observe run, ${s.name}: ${observed}`)
+      failed = true
+    }
     if (opts.backup?.where === 'managed' && !managedProofSeen(configDir)) {
       console.error(`managed run, ${s.name}: the backup lock never logged the notice that proves it read the managed settings file's aegisContext key`)
       failed = true
@@ -361,9 +378,16 @@ async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; 
 }
 
 /** Reads one run's debug log and says what is wrong with it, if anything. The log is read here and never printed. */
-function debugProblem(file: string, mode: TierMode): string | undefined {
+function debugProblem(file: string, mode: TierMode, plan?: LoginPlan): string | undefined {
   if (!fs.existsSync(file)) return 'Claude Code wrote no debug log, so the tier of the tool is not proven'
-  return tierProblem(fs.readFileSync(file, 'utf8'), mode)
+  return tierProblem(fs.readFileSync(file, 'utf8'), mode, plan)
+}
+
+/** The main lock's log lines of a run. The log holds no value; this text stays in memory. */
+function pluginLog(configDir: string): string {
+  const dir = path.join(configDir, 'aegiscontext', 'log')
+  if (!fs.existsSync(dir)) return ''
+  return fs.readdirSync(dir).filter(name => !name.endsWith('.backup.jsonl')).map(name => fs.readFileSync(path.join(dir, name), 'utf8')).join('\n')
 }
 
 /** The managed file carries a setting the tool does not know; reading it is logged as a notice. */
@@ -423,6 +447,10 @@ function doorResult(scenario: string, d: DoorState, verdict: Verdict): DoorResul
   }
 }
 
+/** Only a CONNECT to a listed host is expected: the proxy refuses it before anything is sent, which a plain request can't say. */
+export const unexpectedAttempts = (attempts: readonly Attempt[], hosts: readonly string[] = []): Attempt[] =>
+  attempts.filter(a => !(a.kind === 'connect' && hosts.includes(a.host)))
+
 function overall(doors: DoorResult[], attempts: Attempt[], unreadable: number): Verdict {
   if (doors.length === 0) return 'invalid'
   if (doors.some(d => d.verdict === 'leak')) return 'leak'
@@ -470,10 +498,10 @@ export async function runKit(opts: KitOptions): Promise<Report> {
     ...(opts.pinned ? { pinnedVersion: opts.pinned } : {}),
     plugin: opts.plugin ? path.basename(opts.plugin) : 'none',
     ...(opts.backup ? { backup: opts.backup.where } : {}),
-    verdict: overall(doors, attempts, unreadable),
+    verdict: overall(doors, unexpectedAttempts(attempts, opts.expectedHosts), unreadable),
     doors,
     runs,
-    network: { attempts },
+    network: { attempts, ...(opts.expectedHosts ? { expected: opts.expectedHosts } : {}) },
     unreadable,
     disk: summarizeDisk(disk),
     leftovers,

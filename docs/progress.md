@@ -2,7 +2,7 @@
 
 Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
-**Current focus:** All 7 steps are built. Next: the owner merges the step 6 PR, then the release steps in `docs/release-checklist.md`: create `release` from `develop` and make it the default branch, tag `v0.1.0-rc.1` at its tip, and run the literal `/plugin install` line once by hand. The hand checks and the two weeks of daily use are in Known issues.
+**Current focus:** Step 7 on `step-7`, the fixes planned before daily use (D-090). `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. After step 7: the owner tags `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
 
 ## Steps
 
@@ -15,6 +15,7 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 | 4 | Rest of the main lock | `step-4` | ☑ |
 | 5 | Backup lock + tuning | `step-5` | ☑ |
 | 6 | Release + Audit 2 | `step-6` | ☑ |
+| 7 | Fixes before daily use (D-090) | `step-7` | ☐ |
 
 "Done when" for each step is in `docs/plan.md`, "The 7 steps".
 
@@ -22,7 +23,6 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
 Bugs, unfinished bits and open questions. Features we chose not to build go in spec §23.
 
-- D-005: the owner's reason for `on_check_failure: allow` was never recorded.
 - Probe tests (`claude plugin test`) don't run in CI. The pinned `claude` now makes that possible; it wasn't added in step 1.
 - `claude plugin test` (2.1.316): a `turn.step` stream's `.result` resolves `undefined` even when the step beneath answers, contrary to its doc (`HookStream.result`, `claude-code.d.ts:5383`). Probe tests check the hold through its effects instead. Report it upstream.
 - The desktop app's probe log had no `start` line, so its Claude Code version wasn't recorded. Check before release.
@@ -40,7 +40,7 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - `tools/rules/sample.ts` builds random strings from patterns for tests only; they hold no fixed key.
 - Unquoted values still end at a space, `;`, `,` or `&` (spec §7.1), so a password holding one is only partly hidden, or missed if the first part is under 6 characters. URL passwords under 6 characters, or holding `/`, are also left alone. A plain lowercase password after a `--flag` is left alone (D-034).
 - The truncated-key rule takes the base64 lines after a key as its body, even when the key was complete but JSON-escaped on one line, so a block after it is hidden too.
-- The managed run (`npm run leak-test:managed`) and `tests/doctor-managed-real.test.ts` write the machine's managed settings file (D-020), so they run only in CI and have not run on this PC. The first CI run (fad5f1a) failed the managed step on the MCP door (safe mode starts no MCP servers; the script now skips it). The second (897ec0c, run 41313186648) passed everything on Windows, macOS and Linux: the managed safe-mode run (0 of 42 fakes seen, six doors) and `doctor-managed-real` (the plugin reads a real managed file, doctor says Managed). Not seen: the managed run starting in `observe` mode (plan item 6), and the MCP door under managed hooks.
+- The managed run (`npm run leak-test:managed`) and `tests/doctor-managed-real.test.ts` write the machine's managed settings file (D-020), so they run only in CI and have not run on this PC. The first CI run (fad5f1a) failed the managed step on the MCP door (safe mode starts no MCP servers; the script now skips it). The second (897ec0c, run 41313186648) passed everything on Windows, macOS and Linux: the managed safe-mode run (0 of 42 fakes seen, six doors) and `doctor-managed-real` (the plugin reads a real managed file, doctor says Managed). Not seen: the MCP door under managed hooks, and the backup lock in managed safe mode under `observe`. The organization install in `observe` is `npm run leak-test:org-observe` (D-093).
 - `npm run plugin:typecheck` needs the API types, which only a loaded mod or the `plugin-authoring` skill provides, so it isn't in CI. `/verify` runs it.
 - Large-paste stress runs were by hand, against the kit's mock: 2 MB each, on Windows. No kit door covers them yet.
 - A hook killed outright sends its whole row unhidden under the default `allow`, whatever the cause (D-050). Anything that can't check a deadline must be bounded by size.
@@ -57,9 +57,7 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - A value marked harmless for one session only (`/redact allow <tag>`) is not visible to the backup lock; it may refuse what the main lock allowed (spec §22).
 
 - Hand checks run in the interactive terminal on 2026-11-01 (CLI 2.1.316, Windows): `/redact add` saved and hid a value; `/redact add <value>` refused; `/redact learn` found and saved values; a typed paste and a Read of `.env` and `src/config.ts` showed placeholders only; the observe banner showed in the side pane; `/redact doctor` read the backup lock hooks, copy and Node correctly. A second round the same day: the resumed-session hold works (two prompts dropped with "history contains 1 secrets", `/redact allow` lifted it, the next message went through); the backup lock alone, with the plugin not loaded, blocked a prompt holding a token (the message is shown on screen, and Claude Code also echoes the original prompt in that block), let a clean prompt through, and hid the password in a Read result; with the plugin loaded the backup lock stood down and only the main lock acted. The backup log matches the screen (block at prompt, hide at tool-result, tags only). Built, not hand-tested (the owner's call, not an issue): the `outbound: ask` dialog. Its decision logic has hook tests. The model refused the split-token prompt twice (Claude Code's auto mode, then Haiku 4.5), and a later try had it write a token through `Edit`, which is a local tool that `outbound` does not check (`src/core/outbound.ts` LOCAL_TOOLS). A retry needs a command (Bash, WebFetch or a connected tool) that holds a token the model generated itself. VS Code and the desktop app are not tried (VS Code loads a mod through `CLAUDE_CODE_PLUGIN_DIRS` in its process environment, finding 0.10).
-- There is no command to remove one saved value (spec §19 only documents deleting the whole store). Found with the `/redact learn` bug, which is fixed: learn now skips ticked values under 6 characters like `/redact add`, and says how many were skipped or already saved (`plugin/hooks/lock.test.ts`, two new tests).
-- Cosmetic, seen in the same run: every `$.ui.log` line reads `secret-shield: secret-shield ...` because the message repeats the prefix the display adds. A path with `\.env` showed as `project.env` in the `/redact` list (most likely Markdown eating the backslash; not checked).
-- Step 4 was shipped with its hand checks parked by the owner, so "all commands work" is proven in hook tests and `claude -p` runs, not in a real terminal. `/redact add` and `learn` have never run in one. Still to run before release: interactive `/resume` at `prompt.submit`, the add and learn panes, the `outbound: ask` dialog, the observe band, and whether `/redact` survives `/clear` (it is registered again when the session id changes, unproven interactively).
+- Step 4 was shipped with its hand checks parked by the owner, so "all commands work" is proven in hook tests and `claude -p` runs, not in a real terminal. The hand checks of 2026-11-01 (above) have since covered `/resume`, the add and learn panes and the observe band, all before the rename to AegisContext. Still to run before release: the `outbound: ask` dialog and whether `/redact` survives `/clear` (it is registered again when the session id changes, unproven interactively).
 - `tests/media-real.test.ts` skips where the pinned Claude Code isn't installed, so CI's test job may skip it. It ran on Windows only (4 of 4).
 - 8 of 120 mutants still survive. Same behaviour, so nothing to test: the `.env` byte order mark (the line pattern's `\s` takes it) and the mention's 8 MiB limit (`$.fs.read` refuses over 4 MiB anyway). Only reachable by running out of time, with no seam to force it: `complete` in `checkOverwrite` once a secret is found, and the "ran out of time" lines in the guard and the mention. Small and untested: a `warn` rule's filter in outbound, the `@` folder early return (the stand-in's read answers where the engine's rejects), and `learnValues.clear()` after a save (values stay in the worker's memory until the next `learn`).
 - `claude -p` shows no `$.ui.log` line, so warnings, R-12 failures and the observe banner only reach the log there (spec §22).
@@ -68,17 +66,20 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - A failed store read can take 20 s, and the retry runs inside a hook, so that row waits.
 - Step 6: doctor reports the plugin's tier by watching its own `$.command.list()` call pass a `command.list` hook (`next.origin.tier`). A `claude -p` run on 2.1.316 (Windows) printed `Plugin tier: user` with `--plugin-dir` and from a marketplace install, where the debug log says `aegiscontext@aegiscontext` and `next.origin.plugin` holds the bare name. `prepend` was not seen. "Managed" is read from the managed settings holding our `aegisContext` key or enabling our own plugin; `tests/doctor-managed-real.test.ts` checks that against a real managed file in CI, and now also that `prompt.compose` does not reach a user plugin under the real guard.
 - The guard warning itself (R-05a) was seen under the real guard for the first time in CI run 41339214316, on all three systems: `$.ui.log` reaches Claude Code's debug log, and the kit requires it in a guarded scenario that sent a request and forbids it in an org run (D-088).
-- The guard's Team or Enterprise trigger was never measured: CI seats the guard with a managed file. In the binary the login only decides whether the guard is seated, so what follows should be the same.
-- The backup lock is not run against the `skill-text` door: it is in neither `BACKUP_INSIDE` nor `BACKUP_OUTSIDE`, so whether it covers skill text is not known.
+- The guard's Team or Enterprise trigger is measured by hand, not in CI: CI seats the guard with a managed file. A scratch run on 2026-11-02 (Windows, 2.1.316) put a made-up `.credentials.json` with `subscriptionType` in the run's config folder, with no API key and no managed file. The debug log said "seated outermost: the organization is team" (and `enterprise`), while `pro` and no login stayed unseated. On a scratch copy of the kit, the guarded doors matched `GUARDED_OPEN` (21 of 98: `claude-md`, `hook-context`, `skill-text`), and `hold` refused all three (0 of 21). Those runs are now `npm run leak-test:guarded-login` and `-hold` (D-092): a login makes Claude Code try `api.anthropic.com`, which the proxy refuses and the report marks as expected.
+- The backup lock does not cover skill text. A scratch run of the `skill-text` door against the backup lock alone (2026-11-02, Windows, 2.1.316) saw 7 of 7 fakes. The door is still in neither `BACKUP_INSIDE` nor `BACKUP_OUTSIDE`, so the kit doesn't run it there, and spec §5.2 and §22 and `docs/personal.md` don't list it.
+- Audit 2's `/security-review` ran on the staged step 6 code on 2026-11-01 (16:47 UTC): no high-confidence findings. Its one hardening note, the org run's predictable folder name, is fixed (`fs.mkdtempSync`, `tools/leak-test/run.ts`). `/code-review high` ran at 17:49 UTC. Neither saw D-089, and the security review did not see D-087 or D-088 either. Those were proven by the kit in CI instead.
 - A wrong `<MARKETPLACE-FOLDER>` was tried with the snippet's settings in a scratch user settings file, not a managed one (D-020): no plugin loaded, and only the debug log said so. The real managed path should behave the same; not measured.
 - `--always` on a value whose store save fails stays harmless for the session only, and says so.
 
 - With a failed store read, rows go through with only the shape checks until a retry works, under the default `allow`: a saved secret with no shape is sent, with a warning. Seen on CI when PowerShell took over 20 s in a cut-down environment; a normal environment read in about 0.2 s (D-045).
 - The `@` context fallback (engine attaches nothing for the copy) only has a hook test: the short-path case it was written for turned out to need the long path instead.
 
-- Step 6, measured in CI (green on all three systems): `leak-test:org` 0 of 91 fakes, plugin in tier `prepend`; `leak-test:guarded` matches `GUARDED_OPEN` (`claude-md`, `hook-context`; `mention-file` clean; compaction summary held by the resume check); `backup-node` passes under Node 20 and 22 on Linux and Windows. Still open: (1) the README install job in `.github/workflows/release.yml` needs the `release` branch to exist and be the default; until then it fails on a tag. (2) The `uninstall-real` run on macOS found that a marker file stays behind after the store is emptied; the documented command now removes the data folder too, and CI passes on all three systems.
-- Step 6, not part of this step: the owner's hand checks (VS Code, desktop app and its version, `outbound: ask`, `/redact` after `/clear`), the two weeks of daily use, the real-API run, reports to Anthropic, a trademark register search for AegisContext, the doubled `$.ui.log` prefix and the other cosmetic items, Anthropic's directory submission, a `/redact` command to remove one saved value. The repo is renamed and public, `origin` points at the new name, and private vulnerability reporting is on (checked 2026-11-01). After the merge: create `release` from `develop` and set it as the default branch, then tag `v0.1.0-rc.1` at its tip (the README install job refuses any other commit). The old `secret-shield` folder is deleted from the owner's PC, so saved values need adding again; its settings had no hooks left.
+- Step 6, measured in CI (green on all three systems): `leak-test:org` 0 of 91 fakes, plugin in tier `prepend`; `leak-test:guarded` matches `GUARDED_OPEN` (`claude-md`, `hook-context`; `mention-file` clean; compaction summary held by the resume check); `backup-node` passes under Node 20 and 22 on Linux and Windows. The README install job in `.github/workflows/release.yml` passed on all three systems in run 41342577307, on the tag. The `uninstall-real` run on macOS found that a marker file stays behind after the store is emptied; the documented command now removes the data folder too, and CI passes on all three systems.
+- Step 6, not part of this step: the owner's hand checks (VS Code, desktop app and its version, `outbound: ask`, `/redact` after `/clear`), the two weeks of daily use, the real-API run, reports to Anthropic, a trademark register search for AegisContext, the cosmetic items, Anthropic's directory submission (the owner will do it; it needs an icon). The repo is renamed and public, `origin` points at the new name, and private vulnerability reporting is on (checked 2026-11-01). The old `secret-shield` folder is deleted from the owner's PC, so saved values need adding again; its settings had no hooks left.
 - Step 6: seven worker kills in one session did not unload the plugin (findings, `budget-repeat-many`); the docs' claim of unloading was not reproduced.
+
+- A value marked harmless with `/redact allow` in this session stays harmless until the session ends, even after `/redact remove` takes its saved entry out (D-091).
 
 ## Gotchas
 
@@ -140,7 +141,8 @@ Platform and tooling facts learned so far (from the old `lessons.md`).
 - A hold test that reaches `turn.step` must fire `prompt.compose` first, or it reads as a guarded machine and is refused (D-087).
 - A `turn.step` hook that answers without `next` must stream a `text` and a `stop` chunk. The engine reads the stream, not the return value; a bare return exits 1 with "Execution error" (D-087). `claude plugin test` does not show this, only a real run does.
 - `$.ui.log` lines reach Claude Code's debug log (`--debug-file`) even under `claude -p`, where the screen shows nothing.
-- Slash-command text and `$.ui.log` lines get a `secret-shield:` prefix from the display, so any message that starts with it shows it twice. Changing it also changes toasts and warnings (`warn.ts`).
+- `$.ui.log` and `$.ui.toast` lines already show the plugin's name (`claude-code.d.ts`, `plugin.name`, `ui.toast`), and so does slash-command text in the terminal, so text there must not start with it (`tests/log-prefix.test.ts`). A `deny`, a `drop`, a dialog and the banner show no name, so they keep theirs.
+- Under `claude plugin test`, a test and the plugin hold separate module copies, so a test can't reach a plugin module's variable. Prove it through a hook: a `state.get` hook answers `{ value: { value, version } }`, and a command row exercises the mask.
 
 ## Session notes
 
@@ -222,3 +224,14 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 ### 2026-11-02: skill text, after the ship
 - PR #7's first CI run was green on all three systems (run 41339214316): org 0 of 91, guarded 14 of 91, guarded-hold 0 of 14; the warning was seen under the real guard. A push and its PR share a concurrency group, so the push run shows as cancelled.
 - The owner asked for skill text to be fixed before the merge (D-089): the warning, refusal, doctor line, docs and spec name it, and the kit's `skill-text` door measures it. With the door, org and guarded each cover 14 doors and 98 fakes, and hold 3 doors.
+
+### 2026-11-02: release candidate, and progress caught up
+- PR #7 is merged. `release` equals `develop` at `3e76836` and is the default branch; `v0.1.0-rc.1` points there. Release run 41342577307 passed everything, README install included, and made a draft pre-release with the archives and `SHA256SUMS`. The draft is not published.
+- Audit 2 is recorded in Known issues: what ran, when, and what came after it.
+- A scratch run measured the backup lock on skill text: 7 of 7 seen (Known issues). Nothing in the repo changed for it.
+- Next: the owner's hand checks, for which they will ask Claude for instructions first; the two weeks of daily use; then the rest of the "Before `v0.1.0`" list.
+
+### 2026-11-02: step 7 (fixes before daily use)
+- Built on `step-7`: skill text in the backup lock's limits, the doubled name, `--login` and `--observe` on the kit, `/redact remove` (D-090 to D-093). The owner approved one test change: `shield.test.ts:100` searched for the name to prove a warning, and now searches for the warning's words.
+- Corrected an earlier claim: a removed value stops being hidden at once, not at the next session.
+- Next: a wip push for CI, because `leak-test:org-observe` and macOS and Linux only run there; then `/verify`, `/security-review` and `/code-review high` on everything since `2f00d31`, then `/ship`.

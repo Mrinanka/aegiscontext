@@ -32,6 +32,8 @@ Then:
 | `npm run leak-test` | With the plugin in `plugin/`, no fake may be seen at any door. `-- --only <scenario>` runs one. |
 | `npm run leak-test:backup` | The backup lock alone (settings hooks, plugin not loaded) hides the doors it covers. |
 | `npm run leak-test:backup-limits` | The doors the backup lock does **not** cover leak, as the docs say. The list of limits is proven, not claimed. |
+| `npm run leak-test:guarded-login` | A made-up Team login in the run's own folder seats Claude Code's built-in guard, with no account and no managed file. The doors the guard passes over must leak, and every other door must stay clean. Claude Code also tries `api.anthropic.com` here; the kit's proxy refuses it and the report marks it "expected, refused". |
+| `npm run leak-test:guarded-login-hold` | The same with `on_check_failure: hold`: those doors must be refused, with no request sent. |
 
 Exit codes: 0 pass, 1 a fake was seen (or a baseline was blind), 2 the run was invalid or badly called.
 
@@ -42,6 +44,7 @@ Three more runs write the **machine's managed settings file** while they run, so
 | `npm run leak-test:managed` | The backup lock installed through managed settings still runs in safe mode. |
 | `npm run leak-test:org` | The organization install (a folder marketplace, `prependPlugins`) leaves no door open. Each run's debug log must show the plugin in tier `prepend`; a log without that makes the run invalid. |
 | `npm run leak-test:guarded-hold` | The same machine with `on_check_failure: hold`: the doors that leak above must be refused, with no request sent. It writes the machine's managed settings file, so it runs in CI. |
+| `npm run leak-test:org-observe` | The organization install with `mode: observe`: every fake must be seen, because observe hides nothing, and the plugin's log must say it would have hidden them. |
 | `npm run leak-test:guarded` | The plugin as a user plugin on a machine with managed settings: the doors Claude Code's built-in guard passes over must leak, and every other door must stay clean. |
 
 ### What the kit does not prove

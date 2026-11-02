@@ -33,7 +33,7 @@ Spec: @docs/spec.md. Plan: @docs/plan.md. Progress: docs/progress.md.
 
 ## Git
 
-- One branch per step: `step-0` … `step-6`, from `develop`.
+- One branch per step: `step-0` … `step-7`, from `develop`.
 - Commit only in `/ship` (or a wip checkpoint I ask for). `/ship` pushes the step branch (no force) and opens a PR into `develop`. I review and merge; Claude never merges.
 - Never force-push, amend published commits or rewrite history.
 

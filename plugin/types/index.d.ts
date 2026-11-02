@@ -23,6 +23,8 @@ export type ShieldHidden = { label: string; where: string; tag: string; hint?: s
 /** What `/redact add` and `learn` show. Never a value. */
 export type ShieldPaneNote = { text: string; isError: boolean }
 export type ShieldLearnRow = { id: string; file: string; key: string; length: number; ticked: boolean }
+/** One saved value in `/redact remove`. Never the value. */
+export type ShieldRemoveRow = { id: string; label: string; added: string; length: number; ticked: boolean }
 
 declare module 'claude-code' {
   interface PluginState {
@@ -36,6 +38,8 @@ declare module 'claude-code' {
       addNote: ShieldPaneNote | null
       learnRows: ShieldLearnRow[]
       learnNote: ShieldPaneNote | null
+      removeRows: ShieldRemoveRow[]
+      removeNote: ShieldPaneNote | null
       /** prompt.compose has run in this session: the events reach the plugin (spec §5.3). */
       composeSeen: boolean
       /** The built-in guard warning has been shown this session. */

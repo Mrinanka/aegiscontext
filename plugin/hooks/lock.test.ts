@@ -473,6 +473,212 @@ test('/redact learn lists names, never values, and saves what is ticked', async 
   expect(w.ui.some(l => l.includes('saved 1 of 2'))).toBe(true)
 })
 
+// ---- the plugin's name comes from the display (`$.ui.log`, `$.ui.toast`, slash-command text), so no text repeats it ---
+
+test('a warning, a save line and the status do not start with the plugin name', async ($, on) => {
+  const w = world(on)
+  const status = await redact($, '')
+  expect(status.startsWith('aegiscontext')).toBe(false)
+  expect(status).toContain('main lock running')
+  const ui = await $.ui.mount(ADD as never) as never as { input: (t: unknown) => Promise<unknown>; unmount: () => Promise<void> }
+  await ui.input({ key: 'value', text: SECRET })
+  await ui.unmount()
+  w.storeDown.on = true
+  w.clock.now += 120_000
+  await redact($, 'add')
+  await $.session.append(row(`a line with ${FAKE}`))
+  expect(w.ui.some(l => l.startsWith('Saved.'))).toBe(true)
+  for (const l of w.ui) expect(l.startsWith('aegiscontext')).toBe(false)
+})
+
+// ---- /redact remove (spec §8, §15): picks values by label, never takes one on the command line -----------
+
+const REMOVE = { ...ADD, requestId: 'aegiscontext-remove' } as const
+type Pane = { press: (t: unknown) => Promise<unknown>; find: (q: unknown) => Promise<{ text?: string } | undefined>; findAll: (q: unknown) => Promise<{ text?: string }[]>; unmount: () => Promise<void> }
+type Entry = { value: string; label: string; added: string; harmless?: true }
+
+/** A saved list as the store's files, the way the stand-in DPAPI keeps it. */
+async function savedFiles(entries: Entry[]): Promise<Record<string, string>> {
+  const list = encode(JSON.stringify(entries))
+  const index = encode(JSON.stringify({ v: 1, generation: 1, pieces: 1, checksum: await sha256(list), count: entries.length }))
+  return { [cfg('aegiscontext', 'store', 'index.dpapi')]: index, [cfg('aegiscontext', 'store', 'list-1-0.dpapi')]: list }
+}
+
+const THIRD = ['acme', 'other', 'Pv41Hn26'].join('-')
+const SECOND = ['acme', 'second', 'Lm58Tx03'].join('-')
+const three: Entry[] = [
+  { value: SECRET, label: 'first', added: '2026-11-01' },
+  { value: SECOND, label: 'second', added: '2026-11-02' },
+  { value: THIRD, label: 'third', added: '2026-11-03' },
+]
+const savedCount = async ($: Parameters<typeof redact>[0]): Promise<string> => /Password store: (.*)\./.exec(await redact($, 'doctor'))?.[1] ?? ''
+const lastRow = (w: World): string => {
+  const rows = w.session.appended()
+  return JSON.stringify(rows[rows.length - 1])
+}
+
+test('/redact remove lists labels, dates and lengths, newest first, with nothing ticked and no value', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  const said = await redact($, 'remove')
+  expect(said).toContain('3 saved')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  const shown = JSON.stringify(await ui.findAll({ type: 'Button' }))
+  expect(shown).toContain('[ ] third, added 2026-11-03 (')
+  expect(shown.indexOf('third')).toBeLessThan(shown.indexOf('first'))
+  expect(shown.includes('[x]')).toBe(false)
+  expect(/remove all/i.test(shown)).toBe(false)
+  for (const value of [SECRET, SECOND, THIRD]) {
+    for (const t of [said, shown, JSON.stringify(w.states), ...w.writes.filter(x => !x.path.includes('store')).map(x => x.text), ...w.ui]) expect(t.includes(value)).toBe(false)
+  }
+})
+
+test('/redact remove takes out only what is ticked, and the log holds a count, never a value', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  await ui.press({ key: 'r1' })
+  await ui.press({ key: 'remove' })
+  expect(w.closed).toEqual(['aegiscontext-remove'])
+  expect(await savedCount($)).toContain('2 saved')
+  expect(w.ui.some(l => l.includes('Removed 1'))).toBe(true)
+  const log = w.writes.filter(x => x.path.includes('log')).map(x => x.text).join('')
+  expect(log).toContain('removed 1 saved value')
+  for (const value of [SECRET, SECOND, THIRD]) expect(log.includes(value)).toBe(false)
+})
+
+test('a removed value is no longer hidden on the next row, and the others still are', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  await $.session.append(row(`seen ${SECOND}`))
+  expect(lastRow(w).includes(SECOND)).toBe(false)
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  await ui.press({ key: 'r1' })
+  await ui.press({ key: 'remove' })
+  await $.session.append(row(`seen ${SECOND} and ${THIRD}`))
+  expect(lastRow(w).includes(SECOND)).toBe(true)
+  expect(lastRow(w).includes(THIRD)).toBe(false)
+})
+
+test('a removed value with a known shape stays hidden by its rule, and the message says so', async ($, on) => {
+  const w = world(on, { files: await savedFiles([{ value: FAKE, label: 'token', added: '2026-11-01' }]) })
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  await ui.press({ key: 'r0' })
+  await ui.press({ key: 'remove' })
+  expect(w.ui.some(l => l.includes('known shape'))).toBe(true)
+  await $.session.append(row(`seen ${FAKE}`))
+  expect(lastRow(w).includes(FAKE)).toBe(false)
+  expect(await savedCount($)).toContain('0 saved')
+})
+
+test('removing a value marked harmless hides it again', async ($, on) => {
+  const w = world(on, { files: await savedFiles([{ value: FAKE, label: 'harmless', added: '2026-11-01', harmless: true }]) })
+  await $.session.append(row(`seen ${FAKE}`))
+  expect(lastRow(w).includes(FAKE)).toBe(true)
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  await ui.press({ key: 'r0' })
+  await ui.press({ key: 'remove' })
+  await $.session.append(row(`seen ${FAKE}`))
+  expect(lastRow(w).includes(FAKE)).toBe(false)
+})
+
+test('pressing Remove with nothing ticked removes nothing and stays open', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  await ui.press({ key: 'remove' })
+  expect((await ui.find({ type: 'Text', text: /Nothing is ticked/ }))?.text).toContain('Nothing is ticked')
+  expect(w.closed).toEqual([])
+  expect(await savedCount($)).toContain('3 saved')
+})
+
+test('a tick can be taken back before pressing Remove', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  await ui.press({ key: 'r0' })
+  await ui.press({ key: 'r0' })
+  await ui.press({ key: 'remove' })
+  expect(w.closed).toEqual([])
+  expect(await savedCount($)).toContain('3 saved')
+})
+
+test('/redact remove with an empty list says so and opens nothing', async ($, on) => {
+  world(on)
+  expect(await redact($, 'remove')).toContain('No saved values')
+})
+
+test('/redact remove: a store that can not be read says so in plain words and opens nothing', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  w.storeDown.on = true
+  const said = await redact($, 'remove')
+  expect(said).toContain('could not be read')
+  expect(JSON.stringify(w.states).includes('removeRows')).toBe(false)
+})
+
+test('/redact remove: a store that fails at the save leaves the list whole and says so', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  await ui.press({ key: 'r1' })
+  const files = Object.entries(w.files).filter(([k]) => k.includes('store'))
+  w.storeDown.on = true
+  await ui.press({ key: 'remove' })
+  expect((await ui.find({ type: 'Text', text: /nothing was removed/ }))?.text).toContain('nothing was removed')
+  expect(w.closed).toEqual([])
+  expect(Object.entries(w.files).filter(([k]) => k.includes('store'))).toEqual(files)
+})
+
+test('/redact remove after a worker restart: nothing is removed, and it says to run the command again', async ($, on) => {
+  world(on, { files: await savedFiles(three) })
+  // A restarted worker keeps $.state but not its memory, so a row's id leads to no value.
+  let restarted = false
+  on('state.get', (_$, e, next) => (restarted && (e as { key?: string }).key === 'removeRows' ? { value: { value: [{ id: 'gone', label: 'first', added: '2026-11-01', length: 22, ticked: true }], version: 1 } } as never : next(e)))
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  restarted = true
+  await ui.press({ key: 'remove' })
+  expect((await ui.find({ type: 'Text', text: /run \/redact remove again/ }))?.text).toContain('run /redact remove again')
+  expect(await savedCount($)).toContain('3 saved')
+})
+
+test('/redact remove refuses anything on the command line, as add does, and masks it', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  const said = await redact($, `remove ${SECRET}`)
+  expect(said).toContain('Nothing was removed')
+  expect(said.includes(SECRET)).toBe(false)
+  expect(await savedCount($)).toContain('3 saved')
+  expect(w.closed).toEqual([])
+  await $.session.append({ door: 'command', origin: { kind: 'composer' }, uuid: 'u-2', message: { type: 'user', role: 'user', content: [{ type: 'text', text: `/redact remove ${SECRET}` }] } } as never)
+  expect(lastRow(w).includes(SECRET)).toBe(false)
+  expect(lastRow(w)).toContain('[removed]')
+})
+
+test('/redact remove needs an interactive session', async ($, on) => {
+  world(on, { files: await savedFiles(three), noSurfaces: true })
+  expect(await redact($, 'remove')).toContain('interactive session')
+})
+
+test('R-16: only the person can run /redact remove', async ($, on) => {
+  const w = world(on, { files: await savedFiles(three) })
+  const out = await $.command.run({ command: 'redact', args: 'remove', origin: { kind: 'plugin' } } as never)
+  expect(out.text).toContain('Only you can run')
+  expect(JSON.stringify(w.states).includes('first')).toBe(false)
+})
+
+test('a label in any script draws, and over 200 values the pane shows the newest 200 and says so', async ($, on) => {
+  const many: Entry[] = Array.from({ length: 201 }, (_, i) => ({ value: `${SECRET}-${i}`, label: `clé-密钥-${i}`, added: '2026-11-01' }))
+  world(on, { files: await savedFiles(many) })
+  await redact($, 'remove')
+  const ui = await $.ui.mount(REMOVE as never) as never as Pane
+  const buttons = await ui.findAll({ type: 'Button' })
+  expect(buttons.length).toBe(201) // 200 rows and Remove
+  expect(JSON.stringify(buttons)).toContain('clé-密钥-200')
+  expect(JSON.stringify(buttons).includes('clé-密钥-0,')).toBe(false)
+  expect((await ui.find({ type: 'Text', text: /newest 200 of 201/ }))?.text).toContain('newest 200 of 201')
+})
+
 // ---- failure paths (R-03, R-12): a hook that fails follows on_check_failure, on screen and in the log ---
 
 const failures = (w: World): string[] => w.writes.filter(x => x.path.includes('log')).flatMap(x => x.text.split('\n')).filter(l => l.includes('"event":"failure"'))

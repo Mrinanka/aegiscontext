@@ -4,7 +4,7 @@
 
 import type { EngineInterface } from 'claude-code'
 import { backupHooksIn, backupState, installBackup, snippetText } from './backup-copy.ts'
-import { addToList, osOf, storeReport } from './backends.ts'
+import { addToList, osOf, savedEntries, storeReport } from './backends.ts'
 import { createChecker } from './lib/checker/index.ts'
 import { now } from './lib/core/decoder.ts'
 import { parseEnv, startsTicked } from './lib/core/envfile.ts'
@@ -19,16 +19,18 @@ import { liftResume } from './resume.ts'
 import { ready, registeredChanged } from './runtime.ts'
 import { addAllowedTag, hiddenSummary, placedFiles, setGuardPass } from './state.ts'
 import { clearGuardBlock, lastGuardBlock } from './tools.ts'
-import { learnValues } from './panes.tsx'
+import { learnValues, removeValues } from './panes.tsx'
 
 export const COMMAND = 'redact'
 export const DOCTOR = 'aegiscontext:doctor'
 export const ADD_PANE = 'aegiscontext-add'
 export const LEARN_PANE = 'aegiscontext-learn'
+export const REMOVE_PANE = 'aegiscontext-remove'
 
-const USAGE = 'Use: /redact, /redact add [--label name], /redact learn, /redact allow [tag] [--always], /redact backup [managed], /redact self-check [--report], /redact doctor.'
+const USAGE = 'Use: /redact, /redact add [--label name], /redact learn, /redact remove, /redact allow [tag] [--always], /redact backup [managed], /redact self-check [--report], /redact doctor.'
 const MAX_DEPTH = 3
 const MAX_FILE = 1024 * 1024
+const MAX_REMOVE_ROWS = 200
 const SKIP = new Set(['.git', 'node_modules'])
 
 /** The value a mistaken `/redact add <value>` left on its command row, to be masked there. */
@@ -47,7 +49,7 @@ async function status($: EngineInterface): Promise<string> {
   const hidden = await hiddenSummary($)
   const placed = await placedFiles($)
   const lines = [
-    `aegiscontext ${PLUGIN_VERSION}: main lock running. ${await backupLine($)}`,
+    `Version ${PLUGIN_VERSION}: main lock running. ${await backupLine($)}`,
     `Mode: ${rt.settings.mode === 'observe' ? 'OBSERVE, secrets are NOT being hidden' : 'enforce'}.`,
     `Hidden this session: ${hidden.length}.`,
     ...hidden.slice(-20).map(h => `  ${h.label}${h.hint ? ` ...${h.hint}` : ''} in ${h.where} #${h.tag}`),
@@ -166,6 +168,32 @@ async function learn($: EngineInterface): Promise<string> {
   return `Found ${rows.length} values. Tick the ones to remember.`
 }
 
+async function remove($: EngineInterface, rest: string): Promise<string> {
+  if (rest.trim() !== '') {
+    maskNext = rest
+    return 'Nothing was removed. Never put a secret on the command line: Claude Code keeps that line in its transcript, so consider rotating that value. Run /redact remove alone, and tick what to remove.'
+  }
+  if ((await $.session.surfaces()).length === 0) return '/redact remove needs an interactive session.'
+  let entries
+  try {
+    entries = await savedEntries($)
+  } catch {
+    return 'The saved values could not be read, so nothing can be removed. /redact doctor says why.'
+  }
+  if (entries.length === 0) return 'No saved values.'
+  const newest = entries.slice(-MAX_REMOVE_ROWS).reverse()
+  removeValues.clear()
+  const rows = newest.map((e, i) => {
+    const id = `r${i}`
+    removeValues.set(id, e.value)
+    return { id, label: e.label, added: e.added, length: e.value.length, ticked: false }
+  })
+  await $.state.set({ plugin: 'aegiscontext', key: 'removeRows' }, rows)
+  await $.state.set({ plugin: 'aegiscontext', key: 'removeNote' }, entries.length > MAX_REMOVE_ROWS ? { text: `Showing the newest ${MAX_REMOVE_ROWS} of ${entries.length}.`, isError: false } : null)
+  await $.ui.open({ id: REMOVE_PANE, title: 'Remove saved secrets', focus: true, closeOnEscape: true })
+  return `${entries.length} saved values. Tick the ones to remove.`
+}
+
 async function allow($: EngineInterface, rest: string): Promise<string> {
   const words = rest.split(/\s+/).filter(Boolean)
   const always = words.includes('--always')
@@ -268,6 +296,7 @@ export async function redactCommand($: EngineInterface, args: string): Promise<s
     case '': return status($)
     case 'add': return add($, rest)
     case 'learn': return learn($)
+    case 'remove': return remove($, rest)
     case 'allow': return allow($, rest)
     case 'backup': return backup($, rest)
     case 'self-check': return selfCheck($, rest)

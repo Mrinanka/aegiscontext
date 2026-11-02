@@ -17,8 +17,9 @@ For the maintainer. The tool never merges or tags by itself.
 
 Not done by the tool; they need the maintainer, a real key, or a real app.
 
+- [ ] **High priority:** the `v0.1.0` tag is signed by the maintainer, and the public key is published so anyone can check it. `SHA256SUMS` sits in the same release as the archives, so it catches corruption, not tampering.
 - [ ] Two weeks of daily use by the maintainer.
-- [ ] Hand checks in the interactive terminal: `/resume` at `prompt.submit`, the `/redact add` and `learn` panes, the `outbound: ask` dialog, the observe banner, whether `/redact` survives `/clear`.
+- [ ] Hand checks in the interactive terminal: `/resume` at `prompt.submit`, the `/redact add`, `learn` and `remove` panes, the `outbound: ask` dialog, the observe banner, whether `/redact` survives `/clear`.
 - [ ] Hand checks in **VS Code** (the extension's own Claude Code version) and the **desktop app's Code tab** (record its Claude Code version). The probe log of the desktop app had no start line, so its version was never recorded.
 - [ ] The optional **real-API run**: the same doors against the real API, with a real key and network. It stays out of the kit.
 - [ ] A trademark register search for "AegisContext" (USPTO, EUIPO). Only npm, GitHub and the web were searched.

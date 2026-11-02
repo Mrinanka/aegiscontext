@@ -10,7 +10,7 @@ export function warn($: EngineInterface, kind: string, text: string): void {
   const n = (counts.get(kind) ?? 0) + 1
   counts.set(kind, n)
   if (n > 3 && n % 50 !== 0) return
-  const line = `aegiscontext: ${text}${n > 3 ? ` (${n} times this session)` : ''}`
+  const line = `${text}${n > 3 ? ` (${n} times this session)` : ''}`
   try {
     $.ui.log(line)
     $.ui.toast(line)

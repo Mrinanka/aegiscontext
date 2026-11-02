@@ -166,5 +166,5 @@ export async function afterTool($: EngineInterface, tool: string, e: Input): Pro
   await addPlaced($, found.map(p => ({ file: name, line: p.line, tag: p.tag })))
   if (rt.settings.notices === 'off') return
   const short = name.slice(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1)
-  for (const p of found.slice(0, 5)) $.ui.log(`aegiscontext: Claude wrote a placeholder into ${short}, line ${p.line}. Fill in the real value.`)
+  for (const p of found.slice(0, 5)) $.ui.log(`Claude wrote a placeholder into ${short}, line ${p.line}. Fill in the real value.`)
 }

@@ -3,7 +3,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyList, loadList, saveList, StoreFull, type Backend, type SecretEntry } from '../src/core/store.ts'
+import { emptyList, loadList, removeEntries, saveList, StoreFull, type Backend, type SecretEntry } from '../src/core/store.ts'
 import { backendFor, type Exec, type Files } from '../src/core/backends.ts'
 
 const VALUE = ['Zq7', 'registered', 'Kd93mLx'].join('-')
@@ -321,4 +321,60 @@ test('each store has a piece size and a cap', () => {
     assert.ok(b.pieceBytes >= 1024, os)
     assert.ok(b.maxPieces >= 1, os)
   }
+})
+
+// ---- removing saved values (/redact remove) ------------------------------------------------------
+
+test('removeEntries takes out what is named and keeps the rest in order', async () => {
+  const b = fake()
+  const list = many(5)
+  await saveList(b, list)
+  assert.equal(await removeEntries(b, [`${VALUE}-1`, `${VALUE}-3`]), 2)
+  assert.deepEqual(await loadList(b), { entries: [list[0], list[2], list[4]] })
+})
+
+test('removeEntries: the last value leaves an empty list, and the next save works', async () => {
+  const b = fake()
+  await saveList(b, many(1))
+  assert.equal(await removeEntries(b, [`${VALUE}-0`]), 1)
+  assert.deepEqual(await loadList(b), { entries: [] })
+  await saveList(b, many(2))
+  assert.equal((await loadList(b)).entries.length, 2)
+})
+
+test('removeEntries: a value not on the list changes nothing and writes nothing', async () => {
+  const b = fake()
+  const list = many(2)
+  await saveList(b, list)
+  b.calls.length = 0
+  assert.equal(await removeEntries(b, ['not on the list']), 0)
+  assert.deepEqual(b.calls, [])
+  assert.deepEqual(await loadList(b), { entries: list })
+})
+
+test('removeEntries is all or nothing: a save that dies at any write leaves the whole old list', async () => {
+  const old = many(10)
+  for (let failAt = 1; failAt <= 6; failAt++) {
+    const b = fake()
+    await saveList(b, old)
+    b.ops = 0
+    b.failAt = failAt
+    await assert.rejects(removeEntries(b, [`${VALUE}-4`]), /store went away/)
+    b.failAt = Number.POSITIVE_INFINITY
+    assert.deepEqual(await loadList(b), { entries: old }, `failed at write ${failAt}`)
+  }
+})
+
+test('removeEntries refuses a list it cannot read, so a damaged or locked list is never replaced', async () => {
+  const damaged = fake()
+  await saveList(damaged, many(3))
+  damaged.items.delete('list-1-0')
+  const before = new Map(damaged.items)
+  await assert.rejects(removeEntries(damaged, [`${VALUE}-0`]))
+  assert.deepEqual(damaged.items, before)
+  const locked = fake()
+  await saveList(locked, many(3))
+  locked.status = async () => 'locked'
+  locked.get = async () => undefined
+  await assert.rejects(removeEntries(locked, [`${VALUE}-0`]), /locked/)
 })

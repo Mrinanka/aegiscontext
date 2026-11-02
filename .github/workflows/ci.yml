@@ -103,6 +103,17 @@ jobs:
       # Under on_check_failure: hold, the doors that leak above must be refused, with no request sent (D-087).
       - name: Leak test, user plugin under the built-in guard with hold
         run: npm run leak-test:guarded-hold -- --require-pinned
+      # Step 7: observe from managed settings hides nothing, and the plugin's log must say what it would have hidden.
+      - name: Leak test, organization install in observe mode
+        run: npm run leak-test:org-observe -- --require-pinned
+      # Step 7: the other way to seat the guard, a Team or Enterprise login. A made-up login in the run's own config
+      # folder, with no account and no managed file; the debug log must name the plan.
+      - name: Leak test, user plugin under a Team login
+        run: npm run leak-test:guarded-login -- --require-pinned
+      - name: Leak test, user plugin under a Team login with hold
+        run: npm run leak-test:guarded-login-hold -- --require-pinned
+      - name: Leak test, user plugin under an Enterprise login
+        run: node tools/leak-test/run.ts --guarded --login enterprise --only skill-text --require-pinned
       # The plugin reads the policy source from a real managed file, and doctor calls the install Managed.
       - name: Doctor and policy, real managed file
         env:

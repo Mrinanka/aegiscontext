@@ -27,6 +27,9 @@
     "leak-test:org": "node tools/leak-test/run.ts --org --allow-managed-file",
     "leak-test:guarded": "node tools/leak-test/run.ts --guarded --allow-managed-file",
     "leak-test:guarded-hold": "node tools/leak-test/run.ts --guarded --hold --allow-managed-file",
+    "leak-test:guarded-login": "node tools/leak-test/run.ts --guarded --login team",
+    "leak-test:guarded-login-hold": "node tools/leak-test/run.ts --guarded --login team --hold",
+    "leak-test:org-observe": "node tools/leak-test/run.ts --org --observe --allow-managed-file",
     "leak-test:managed": "node tools/leak-test/run.ts --no-plugin --backup managed --safe-mode --allow-managed-file --only prompt-typed --only prompt-pasted --only read-file --only bash-output --only bash-large --only subagent-read"
   },
   "devDependencies": {

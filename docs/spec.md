@@ -99,7 +99,7 @@ Settings-file hooks (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`) that run t
 | Clean a tool's output after it runs, built-in tools included, by returning the tool's own result with secrets replaced. The result **must** keep the tool's shape; any other value is ignored (check 0.9). Proven for Read, Bash (a 200 KB output too), connected tools and a subagent's Read (spike S3). | Clean the error of a **failed command**: the one hook that sees it can only stop the request, and the raw error is sent on the next prompt (spike S1, D-072) |
 
 **Doors the backup lock covers** (the leak kit runs each one with the plugin not loaded, and no fake may be seen): a typed prompt, a pasted prompt, a file Claude reads, command output (large too), a connected tool's result, a subagent's file read.
-**Doors it does not cover** (the kit runs each expecting every fake to be seen, so the list is proven, not claimed): `@` files, a failed command's error, a compaction summary, a resumed session's history, project `CLAUDE.md` text and settings-hook context.
+**Doors it does not cover** (the kit runs each expecting every fake to be seen, so the list is proven, not claimed): `@` files, a failed command's error, a compaction summary, a resumed session's history, project `CLAUDE.md` text, settings-hook context and skill text.
 
 - **R-04** The main lock **must** write an "I'm running" marker per session, with a `beat` it refreshes while it is used (at most every 30 seconds). The backup lock **must** check the marker first and do nothing when it says `running: true` with a fresh beat (not older than 5 minutes), and be strict for that session when the marker is missing, unreadable, not running, or stale. A crash leaves `running: true` behind, so age decides; a beat from the future (beyond 5 seconds) counts as stale. A mod can't delete a file, so the marker ends the session as `running: false`, which counts as missing (D-047, D-077). The 30 seconds and 5 minutes are first guesses with no measurement behind them.
 
@@ -207,6 +207,7 @@ Not in v1. Parked in section 23 (D-019).
 ## 8. Registering your own secrets
 
 - **`/redact add`:** paste a secret once. It is matched from then on (and see 6.2).
+- **`/redact remove`:** a picker of the saved values, by label, date and length, never the value. Nothing is ticked at the start, and there is no "remove all". A removed value stops being hidden at once, unless its shape matches a rule (D-091).
 - **`/redact learn`:** a one-time picker that lists values from `.env*` files in the project. Nothing is learned unless the user ticks it. Values that look like real secrets start ticked.
 
 ### 8.1 How they're stored
@@ -345,6 +346,7 @@ A project **can** add custom rules and `secret_files` patterns, and choose stric
 | `/redact` | Status of the main and backup locks, the mode, what was hidden this session (type, where, hint), files that got placeholders |
 | `/redact add [--label name]` | Register a secret, pasted into a box. Never on the command line, and not in `claude -p` (D-057) |
 | `/redact learn` | Pick secrets from `.env*` files |
+| `/redact remove` | Pick saved values to remove. Takes no value on the command line, and not in `claude -p`. Shows the newest 200 and says so when there are more (D-091) |
 | `/redact allow <tag>` | Mark a hidden value as harmless (`--always` to remember, in the OS password store). With no tag: lift a resume block, or let the last guarded change through once (D-060) |
 | `/redact backup [managed]` | Copies the backup lock to `<config>/aegiscontext/backup/` and prints the settings to add (Personal, or `managed` for the Managed snippet), and whether Node was found. A later session refreshes an existing copy when it is out of date and never makes one unasked (D-068). |
 | `/redact self-check` | Runs built-in test cases and shows pass or fail. `--report` writes a shareable report file (no secrets) for a security team or a bug report. |
@@ -442,8 +444,8 @@ The maintainers can't test inside every organization. So everything needed to te
   - `allowManagedHooksOnly` turns it off
   - a project's `disableAllHooks` setting, `--bare` and `CLAUDE_CODE_SIMPLE=1` turn the tool off, silently
 - **Safe mode** turns the main lock off. In Personal mode it turns the backup lock off too. A backup lock installed through managed settings still runs (check 0.8; proven in CI by `npm run leak-test:managed`), within the limits below.
-- **The backup lock's limits** (D-072, D-076):
-  - It doesn't cover `@` files, the error of a failed command, a compaction summary, a resumed session's history, project `CLAUDE.md` text or settings-hook context (section 5.2). The kit proves each one leaks. A failed command's raw error is sent on the next prompt even if the request is stopped once.
+- **The backup lock's limits** (D-072, D-076, D-090):
+  - It doesn't cover `@` files, the error of a failed command, a compaction summary, a resumed session's history, project `CLAUDE.md` text, settings-hook context or skill text (section 5.2). The kit proves each one leaks. A failed command's raw error is sent on the next prompt even if the request is stopped once.
   - It blocks a prompt whole. Claude Code still writes a blocked prompt to the transcript and, under `claude -p`, prints it back on screen (spike S4).
   - Its tags are its own (section 9), and it keeps nothing between calls. A letters-only password a label found is hidden only where the label is (D-071), so a bare copy in a later call isn't. A value marked harmless for one session only (kept in the main lock's state) isn't visible to it, so it may refuse something the main lock allowed.
   - A setting given only with `--settings` isn't visible to a hook. A managed setting delivered by MDM or from the server isn't either, unless a copy of it is given with `--policy <file>` (the Managed snippet has the argument); without it a `hold` there reads as `allow`.
