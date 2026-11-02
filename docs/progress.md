@@ -2,7 +2,7 @@
 
 Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
-**Current focus:** Step 7 is shipped as a PR into `develop`; the owner moves to a step 8 of their own, which `docs/plan.md` does not list yet. `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 7: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
+**Current focus:** Step 8 on `step-8`: put secrets back, the weekly run and Audit 3 (D-095, D-096). `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 8: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
 
 ## Steps
 
@@ -16,6 +16,7 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 | 5 | Backup lock + tuning | `step-5` | ☑ |
 | 6 | Release + Audit 2 | `step-6` | ☑ |
 | 7 | Fixes before daily use (D-090) | `step-7` | ☑ |
+| 8 | Put secrets back + weekly CI + Audit 3 (D-095) | `step-8` | ☐ |
 
 "Done when" for each step is in `docs/plan.md`, "The 7 steps".
 
@@ -249,3 +250,8 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 - Signed tags decided (D-094): GPG, from `v0.1.0-rc.2` on. The owner makes the key; no release until then. The docs sweep also fixed the README table, the count in `docs/verify.md` and the rc.1 labels, and closed the lowest-version hunt. `tests/docs.test.ts` now fails if the README table misses a subcommand.
 - The owner asked to ship before `/verify` and the audits, with CI on Windows and Linux green for `daf7cab` and all systems green for `d22943d`.
 - Next: the owner merges, then their step 8. Before `rc.2`: the audits, a GPG key, and the fingerprint in `SECURITY.md`.
+
+### 2026-11-02: step 8 added
+- Step 7 is merged (PR #8). The owner added step 8: put secrets back, the weekly run against the newest Claude Code, and Audit 3 (D-095). `rc.2` moved to after it.
+- The put-back design is in `docs/plan.md`, "Step 8", and D-096, which stays `proposed` until the rewrite test passes. The spec, README and `docs/personal.md` don't change until then.
+- Next: `/plan-step` on `step-8`. Not `/ship`: nothing is built yet.

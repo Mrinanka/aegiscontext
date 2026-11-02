@@ -7,7 +7,7 @@ Spec: @docs/spec.md. Plan: @docs/plan.md. Progress: docs/progress.md.
 
 - 7 steps (`docs/plan.md`, "The 7 steps"); one step per session.
 - Loop: `/plan-step` (in plan mode) → I approve → tests first, then code → `/verify` → fix → `/ship` → `/clear`.
-- Steps 3 and 6 end with an audit: `/security-review` and `/code-review high` before `/ship`.
+- Steps 3, 6 and 8 end with an audit: `/security-review` and `/code-review high` before `/ship`.
 - If a step spans sessions, commit a `step <n> (wip): ...` checkpoint when I ask; no PR until `/ship`.
 - Spec and plan: propose a change, edit only after I say yes, and log it as a decision.
 - Parked features go to spec §23; bugs and unfinished bits go to progress "Known issues". Nothing deferred lives only in session notes.
@@ -33,7 +33,7 @@ Spec: @docs/spec.md. Plan: @docs/plan.md. Progress: docs/progress.md.
 
 ## Git
 
-- One branch per step: `step-0` … `step-7`, from `develop`.
+- One branch per step: `step-0` … `step-8`, from `develop`.
 - Commit only in `/ship` (or a wip checkpoint I ask for). `/ship` pushes the step branch (no force) and opens a PR into `develop`. I review and merge; Claude never merges.
 - Never force-push, amend published commits or rewrite history.
 

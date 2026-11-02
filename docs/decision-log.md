@@ -120,6 +120,8 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-092 | The guard's login path is measured with a made-up login; one host is let off the network rule there | accepted | 7 | 20, 22 |
 | D-093 | Observe from managed settings is measured on the organization install | accepted | 7 | 13, 20 |
 | D-094 | Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on | accepted | 7 | 19, 23 |
+| D-095 | Step 8: put secrets back and the weekly run; `v0.1.0-rc.2` moves to after it | accepted | 8 | none |
+| D-096 | Put secrets back: an optional flag, off by default, into a file that already holds the value | proposed | 8 | 2, 10, 14, 23 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -862,7 +864,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Evidence: the 2.1.316 binary's `register` of `sec-default` (`isSkillRow`); on Windows, with no guard, the door shows 7 of 7 fakes with no tool and 0 of 7 with the plugin. D-087's and D-088's kit runs were green on all three systems in CI run 41339214316: org 0 of 91, guarded 14 of 91 (7 at each listed door), hold 0 of 14.
 
 ## D-090: Step 7: fixes before daily use, then `v0.1.0-rc.2`
-- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan)
+- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan). The tag's timing is changed by D-095.
 - Decision: Five items are built on `step-7` before the two weeks of daily use start: skill text in the backup lock's limits, `/redact remove`, the doubled name, and the login and observe runs. The owner then tags `v0.1.0-rc.2`, and the daily use and hand checks run on that.
 - Why: Daily use on rc.1 would not cover code added after it. A scratch run also showed the backup lock leaks skill text (7 of 7 fakes) with no doc saying so. The same run is now `leak-test:backup-limits`, so the limit is proven.
 - Rejected: Putting the fixes after the two weeks, which would mean starting them again.
@@ -900,6 +902,22 @@ Tiny clarifications go under **Minor** at the bottom.
 - Rejected: Signing only `v0.1.0`, which leaves rc.2 open to the same doubt. SSH signing. A key held in CI: the point is that the tag comes from the maintainer.
 - Limit: The release workflow does not check the signature (Known issues), so the checklist's `git tag -v` is the check. A key lost or replaced means publishing the new fingerprint.
 - Evidence: the scratch run; `https://github.com/Mrinanka.gpg` answers 200 and said no key was uploaded on 2026-11-02. A `.tar.gz` rebuilt from `v0.1.0-rc.1` on Windows had the same SHA-256 as the one CI made on Linux, which ties a signed tag to its archive; the `.zip` did not match, though the files inside the `.tar.gz` are the same 315 as the tag's.
+
+## D-095: Step 8: put secrets back and the weekly run; `v0.1.0-rc.2` moves to after it
+- Date / Step: 2026-11-02 / 8        Status: accepted. Changes the tag's timing in D-090.
+- Decision: Step 8 holds put secrets back (D-096), a weekly CI run against the newest Claude Code, and an audit of everything since `2f00d31`. The owner signs `v0.1.0-rc.2` after step 8, not after step 7.
+- Why: The owner made put-back and the weekly run high priority for this release. Daily use must cover the final code, the reason given in D-090, so a tag before step 8 would mean starting the two weeks again.
+- Rejected: Tagging `rc.2` after step 7 and adding put-back in a later release candidate. The backup lock's `@` check was not brought in.
+- Evidence: D-090; progress, Known issues (step 7 and D-087 to D-089 were never audited).
+
+## D-096: Put secrets back: an optional flag, off by default, into a file that already holds the value
+- Date / Step: 2026-11-02 / 8        Status: proposed. It stays proposed until the rewrite test in plan step 8 passes.
+- Context: This reopens D-006 and non-goal "putting secrets back" (spec §2). If accepted it supersedes D-006, changes R-09 and the disk rule in `CLAUDE.md`, and changes D-049 in two ways: a managed "off" binds with no `locked`, and a project's "on" is the one exception to "stricter only".
+- Decision: As set out in `docs/plan.md`, "Step 8": a value goes back only into a file that already holds it on disk, and otherwise the placeholder stays. It is off by default, in the main lock only, and turned on and off with `/redact put-back`, with `--here` for one folder. The docs state the risk and recommend keeping it off.
+- Why: The owner wants it for developer productivity, because Claude can't reorganize a config today: the overwrite guard refuses the rewrite, and an Edit on a placeholder line fails.
+- Rejected: Restoring into any file Claude writes. A hook can't see what the person asked for, and a restored value in a tracked file could be committed. Ignoring a repo's "on": the owner chose to honor it, with the notice, because the restore rule keeps the risk small. A `/config` row: the menu can't show the warning when it is turned on, and `pluginConfigs` isn't covered by self-protection (read in the API docs and `src/core/protect.ts:15`, not tested).
+- Open: Whether a rewritten tool input stays out of the next request has not been tested. If it doesn't, the model would see the real value and the design changes.
+- Evidence: `src/core/guard.ts`, `plugin/hooks/tools.ts` and `src/core/protect.ts`, read on 2026-11-02; spec §14; Claude Code settings docs (`https://code.claude.com/docs/en/settings`), where `bypassPermissions` and `auto` don't take effect from project files, which is stricter than this choice.
 
 ---
 

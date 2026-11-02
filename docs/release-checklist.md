@@ -6,6 +6,7 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 
 `v0.1.0-rc.1` went through this list. These are for `v0.1.0-rc.2`.
 
+- [ ] Step 8 is merged and its audits are done (D-095).
 - [ ] `develop` is green in CI on the three systems, including `leak-test:org`, `leak-test:org-observe`, `leak-test:guarded`, `leak-test:guarded-hold` and `leak-test:guarded-login`.
 - [ ] `docs/spec.md` section 22 lists the doors `leak-test:guarded` measured (`GUARDED_OPEN` in `tools/leak-test/org.ts`).
 - [ ] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts`, `CHANGELOG.md`.
