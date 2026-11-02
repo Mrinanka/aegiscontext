@@ -2,7 +2,7 @@
 
 Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
-**Current focus:** Step 7 on `step-7`, the fixes planned before daily use (D-090). `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 7: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
+**Current focus:** Step 7 is shipped as a PR into `develop`; the owner moves to a step 8 of their own, which `docs/plan.md` does not list yet. `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 7: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
 
 ## Steps
 
@@ -15,7 +15,7 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 | 4 | Rest of the main lock | `step-4` | ☑ |
 | 5 | Backup lock + tuning | `step-5` | ☑ |
 | 6 | Release + Audit 2 | `step-6` | ☑ |
-| 7 | Fixes before daily use (D-090) | `step-7` | ☐ |
+| 7 | Fixes before daily use (D-090) | `step-7` | ☑ |
 
 "Done when" for each step is in `docs/plan.md`, "The 7 steps".
 
@@ -81,6 +81,8 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 
 - A value marked harmless with `/redact allow` in this session stays harmless until the session ends, even after `/redact remove` takes its saved entry out (D-091).
 
+- Step 7 shipped without `/verify`, `/security-review` or `/code-review high`: the owner asked to ship and to come back if errors appear. So the audits never saw step 7, nor D-087 to D-089 (see the Audit 2 line). Run both on everything since `2f00d31` before `v0.1.0`.
+- Two macOS jobs of CI run 41483714213 (`daf7cab`) were cancelled at 16:55 UTC after 15 minutes queued, with neither started. The owner did not cancel them, and the cause was not found. `test` has `timeout-minutes: 15`, but `leak test` has 20 and went at the same second.
 - A path with `\.env` showed as `project.env` in the `/redact` list (most likely Markdown eating the backslash; not checked).
 - No signing key exists yet, and the release workflow does not check a tag's signature, so `git tag -v` in the checklist is the only check (D-094).
 
@@ -146,6 +148,10 @@ Platform and tooling facts learned so far (from the old `lessons.md`).
 - `$.ui.log` lines reach Claude Code's debug log (`--debug-file`) even under `claude -p`, where the screen shows nothing.
 - `$.ui.log` and `$.ui.toast` lines already show the plugin's name (`claude-code.d.ts`, `plugin.name`, `ui.toast`), and so does slash-command text in the terminal, so text there must not start with it (`tests/log-prefix.test.ts`). A `deny`, a `drop`, a dialog and the banner show no name, so they keep theirs.
 - Under `claude plugin test`, a test and the plugin hold separate module copies, so a test can't reach a plugin module's variable. Prove it through a hook: a `state.get` hook answers `{ value: { value, version } }`, and a command row exercises the mask.
+
+- A CI job waiting for a machine reads `queued`, not stuck: nothing has run. `gh run rerun <id> --failed` restarts only failed or cancelled jobs, under a new attempt.
+- `tests/no-whole-fakes.test.ts` needs staged files, so `git add -A` then `git reset -q` shows in the reflog as "reset: moving to HEAD". It moves no commit, but it does unstage whatever was staged.
+- A signed tag does not cover the archives. A `.tar.gz` rebuilt from the tag matches `SHA256SUMS`, which ties them together; a `.zip` does not.
 
 ## Session notes
 
@@ -241,3 +247,5 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 - `/redact remove` is proven in hook tests and refuses correctly under `claude -p`, but its pane has not been seen in a real terminal. The doubled name is gone in tests and the debug log, not yet seen on an interactive screen. Both are in the hand checks.
 - Next: `/verify`, `/security-review` and `/code-review high` on everything since `2f00d31`, then `/ship`.
 - Signed tags decided (D-094): GPG, from `v0.1.0-rc.2` on. The owner makes the key; no release until then. The docs sweep also fixed the README table, the count in `docs/verify.md` and the rc.1 labels, and closed the lowest-version hunt. `tests/docs.test.ts` now fails if the README table misses a subcommand.
+- The owner asked to ship before `/verify` and the audits, with CI on Windows and Linux green for `daf7cab` and all systems green for `d22943d`.
+- Next: the owner merges, then their step 8. Before `rc.2`: the audits, a GPG key, and the fingerprint in `SECURITY.md`.

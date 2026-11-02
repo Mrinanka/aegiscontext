@@ -905,6 +905,8 @@ Tiny clarifications go under **Minor** at the bottom.
 
 ## Minor
 
+- 2026-11-02 / 7: The owner approved changing one line of `plugin/hooks/shield.test.ts`: it proved a warning by searching for the plugin's name, and now searches for the warning's words.
+- 2026-11-02 / 7: The owner asked to ship step 7 before `/verify` and the audits, and to come back if errors appear.
 - 2026-11-02 / 7: The lowest-version hunt (old check 0.12) is closed: D-086 made the oldest tested version the stated minimum, so spec section 23 no longer lists it.
 - 2026-11-01 / 5: The owner approved changing one line of `tests/core-settings.test.ts` (it expected "personal_data ... not available yet", which step 5 makes false by design, D-037). The test title above it said the setting "does nothing yet"; it was left as it was at first, because the approval was for the one line. After `/verify` the owner asked for the leftovers to be done, and the title was reworded (title only, same checks). The same went for three titles in `tests/checker-scan.test.ts` that named the removed repeated-line memory (D-074).
 - 2026-10-31: "secret-shield" is a working name. The final name is chosen in part 6.4 (no "Claude" or "Anthropic" in it).
