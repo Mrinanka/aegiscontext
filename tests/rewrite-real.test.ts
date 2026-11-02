@@ -20,7 +20,9 @@ const root = path.join(import.meta.dirname, '..')
 const plugin = path.join(root, 'tools', 'leak-test', 'fixtures', 'rewrite-plugin')
 const claude = resolveClaude(process.env.AEGIS_CLAUDE ? { explicit: process.env.AEGIS_CLAUDE } : {}).cmd
 const skip = claude === 'claude' ? 'Claude Code is not installed (no pinned copy, no AEGIS_CLAUDE)' : false
-const base = fs.mkdtempSync(path.join(os.tmpdir(), 'rewrite-real-'))
+// The real path: a Windows runner's temp folder has an 8.3 short name (RUNNER~1), and Claude Code then
+// treats the file as outside the working folder and refuses the Write.
+const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'rewrite-real-')))
 after(() => fs.rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }))
 
 // Built from pieces, like the mod's own copies.
