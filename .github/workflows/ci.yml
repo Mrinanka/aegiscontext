@@ -72,6 +72,8 @@ jobs:
         run: claude plugin validate ./plugin
       - name: Plugin tests
         run: claude plugin test ./plugin
+      - name: Rewrite test (a mod rewrites a Write and an Edit before the tool runs)
+        run: node --test tests/rewrite-real.test.ts
       - name: Leak test, core hiding
         run: npm run leak-test:core -- --require-pinned
       # Step 4 "Done when": every door, a stopped resume and a registered value included.

@@ -29,6 +29,14 @@ test('CI runs the baseline on all 3 OSes, against the pinned version', () => {
   assert.match(leak, /timeout-minutes:/)
 })
 
+test('CI runs the rewrite test on all 3 OSes, with the pinned Claude Code installed so it cannot skip', () => {
+  const leak = job('leak-test')
+  assert.match(leak, /node --test tests\/rewrite-real\.test\.ts/)
+  assert.ok(leak.indexOf('claude-pin') < leak.indexOf('rewrite-real.test.ts'))
+  const test = fs.readFileSync(path.join(root, 'tests', 'rewrite-real.test.ts'), 'utf8')
+  assert.match(test, /control: with no rewrite/)
+})
+
 test('CI finishes the password store and Node checks on each OS', () => {
   assert.match(job('leak-test'), /run\.ts runtime store/)
 })
