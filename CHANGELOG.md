@@ -19,6 +19,10 @@ Fixes from the review of rc.1, made before the two weeks of daily use so that th
 
 - The built-in guard under a Team or Enterprise login (`npm run leak-test:guarded-login`), and the organization install in observe mode (`npm run leak-test:org-observe`).
 
+### Release
+
+- Tags are signed with the maintainer's GPG key from this version on. `v0.1.0-rc.1` is not signed. See `docs/verify.md`, "Check a release".
+
 No default changed.
 
 ## 0.1.0-rc.1 (release candidate)

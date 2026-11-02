@@ -2,7 +2,7 @@
 
 AegisContext hooks into Claude Code, so it is only as good as the Claude Code it was tested with. This list is published with each release and is the same list `/redact doctor` and the session-start warning use (`src/core/versions.ts`).
 
-## This release (v0.1.0-rc.1)
+## This release (v0.1.0-rc.2)
 
 | Claude Code | Where | How it was checked |
 |---|---|---|

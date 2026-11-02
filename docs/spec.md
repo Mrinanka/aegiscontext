@@ -4,8 +4,8 @@ An open-source tool that stops secrets from reaching the model when developers u
 
 - **Status:** draft.
 - **License:** Apache-2.0.
-- **Last updated:** 1 November 2026 (step 6: the name, the built-in guard, the organization install, D-081 to D-085).
-- **Maintainer:** (your name)
+- **Last updated:** 2 November 2026 (step 7: `/redact remove`, the backup lock's skill text limit, signed tags, D-090 to D-094).
+- **Maintainer:** Mrinanka Dhar
 
 **How to read this spec.** Requirements a build must meet have an ID (`R-01`) and the word **must**. Tests in `plan.md` point to these IDs. **Should** means strongly recommended but not release-blocking. Facts about Claude Code were checked on a real machine in Step 0; the evidence is in `docs/findings-step0.md`, and a check number (`0.4`) points to its row.
 
@@ -395,8 +395,9 @@ Each piece of text is checked once, when it first arrives, and saved already cle
 - Notes for MDM tools (Jamf, Intune) and for offline or mirrored installs: copy a release archive to a folder on each machine. An internal git mirror does not reach the `prepend` tier (a plugin from git counts as a user's); it serves the Personal install only.
 
 **Releases**
-- Semantic versioning. Releases go out as a pre-release (`v0.1.0-rc.1`) first; `release` is the branch the install line points at, and each release merges `develop` into it.
-- Release archives (`.tar.gz` and `.zip`, made by `git archive`) with SHA-256 checksums. Signed git tags are parked (section 23, D-019).
+- Semantic versioning. Releases go out as a pre-release (`v0.1.0-rc.<n>`) first; `release` is the branch the install line points at, and each release merges `develop` into it.
+- Release archives (`.tar.gz` and `.zip`, made by `git archive`) with SHA-256 checksums.
+- Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on, and the public key is published on the maintainer's GitHub profile. `v0.1.0-rc.1` is unsigned and stays so; a published tag is never moved or made again (D-094).
 - A changelog that calls out any change to defaults.
 
 **Uninstall** is documented, including how to delete the saved secrets from the OS password store.
@@ -474,8 +475,6 @@ The single list of everything not being built now. Anything deferred during a bu
 - Hidden test set, scored once per release · too much effort for v1; the catch, code and false-alarm sets are enough to start · D-019
 - Large downloaded false-alarm corpus · the `.ts` files in `node_modules/typescript` and `node_modules/@types/node` are a known-license set with no download · D-019
 - Full compatibility matrix (versions × OS × surface) · one pinned version on 3 OSes is enough for v1 · D-019
-- Lowest-working-version hunt (old Step 0 check 0.12) · same reason · D-019
-- Signed release tags · needs signing-key setup; SHA-256 checksums cover integrity · D-019
 - "Looks random" check (entropy-style, old §7.3) · was already "later in v1"; ship only if it catches more without many more false alarms; credit any outside code (§21) · D-019
 
 **v2 candidates:**

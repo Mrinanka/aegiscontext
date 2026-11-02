@@ -44,7 +44,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-016 | Step 0 probe lives in `experiments/step0-probe/`, loaded with `--plugin-dir` | accepted | 0.A | 5.1 |
 | D-017 | Probe log: `<cwd>/.step0-probe/<session id>.jsonl`, metadata only | accepted | 0.A | 5.1 |
 | D-018 | Slim workflow: 7 steps, 3 commands, 2 audits | accepted | step 0 | — |
-| D-019 | Scope cuts: test sets and release extras parked | accepted | step 0 | 4, 7.3, 20, 23 |
+| D-019 | Scope cuts: test sets and release extras parked | accepted; signed tags superseded by D-094, lowest-version hunt settled by D-086 | step 0 | 4, 7.3, 20, 23 |
 | D-020 | Step 0 checks: local mock for headless runs, temporary managed settings file, macOS/Linux finished in step 1 | accepted | step 0 | 4, 5.3, 8.1, 20 |
 | D-021 | Add check 0.14: hook kill switches (`disableAllHooks`, `--bare`, `CLAUDE_CODE_SIMPLE`) | accepted | step 0 | 3, 17, 22 |
 | D-022 | Apply the step 0 findings to the spec | accepted | step 0 | 4, 5, 6.1, 12, 18, 20, 22 |
@@ -119,6 +119,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-091 | `/redact remove`: a picker, with no value on the command line | accepted | 7 | 8, 15 |
 | D-092 | The guard's login path is measured with a made-up login; one host is let off the network rule there | accepted | 7 | 20, 22 |
 | D-093 | Observe from managed settings is measured on the organization install | accepted | 7 | 13, 20 |
+| D-094 | Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on | accepted | 7 | 19, 23 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -891,10 +892,20 @@ Tiny clarifications go under **Minor** at the bottom.
 - Not covered: The backup lock in managed safe mode under `observe`, and the banner under `claude -p`, which has no screen.
 - Evidence: a rehearsal with `mode: observe` in user settings: 98 of 98 seen, every scenario logged. The managed run itself is CI only (D-020).
 
+## D-094: Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on
+- Date / Step: 2026-11-02 / 7        Status: accepted
+- Context: This reopens the signed-tags part of D-019, which parked them because `SHA256SUMS` covers integrity. The owner made them high priority: the checksums sit in the same release as the archives, so they catch corruption, not tampering, and this is a security tool asking to be trusted.
+- Decision: Every release tag from `v0.1.0-rc.2` on is signed with `git tag -s`, and an unsigned tag blocks a release. The public key is on the maintainer's GitHub profile and its fingerprint in `SECURITY.md`. `v0.1.0-rc.1` stays unsigned, because a published tag is never moved or made again. No release is made until the key exists.
+- Why GPG: In a scratch repo on Git 2.49 both kinds signed and verified. With GPG a stranger imports one public key and runs `git tag -v`. With SSH they must write an allowed-signers file first, and SSH keys have no expiry or revocation.
+- Rejected: Signing only `v0.1.0`, which leaves rc.2 open to the same doubt. SSH signing. A key held in CI: the point is that the tag comes from the maintainer.
+- Limit: The release workflow does not check the signature (Known issues), so the checklist's `git tag -v` is the check. A key lost or replaced means publishing the new fingerprint.
+- Evidence: the scratch run; `https://github.com/Mrinanka.gpg` answers 200 and said no key was uploaded on 2026-11-02. A `.tar.gz` rebuilt from `v0.1.0-rc.1` on Windows had the same SHA-256 as the one CI made on Linux, which ties a signed tag to its archive; the `.zip` did not match, though the files inside the `.tar.gz` are the same 315 as the tag's.
+
 ---
 
 ## Minor
 
+- 2026-11-02 / 7: The lowest-version hunt (old check 0.12) is closed: D-086 made the oldest tested version the stated minimum, so spec section 23 no longer lists it.
 - 2026-11-01 / 5: The owner approved changing one line of `tests/core-settings.test.ts` (it expected "personal_data ... not available yet", which step 5 makes false by design, D-037). The test title above it said the setting "does nothing yet"; it was left as it was at first, because the approval was for the one line. After `/verify` the owner asked for the leftovers to be done, and the title was reworded (title only, same checks). The same went for three titles in `tests/checker-scan.test.ts` that named the removed repeated-line memory (D-074).
 - 2026-10-31: "secret-shield" is a working name. The final name is chosen in part 6.4 (no "Claude" or "Anthropic" in it).
 - 2026-10-31 / 0.0: NOTICE copyright line is "Copyright 2026 Mrinanka Dhar", with the project as "secret-shield (working name)" (renamed in 6.4).

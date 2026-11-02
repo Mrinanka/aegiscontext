@@ -3,7 +3,7 @@
 How we build the tool described in `spec.md`, and how we prove it works.
 
 - **Status:** draft.
-- **Last updated:** 1 November 2026 (step 3 hooks, D-042; earlier: 7 steps, D-018; scope cuts, D-019).
+- **Last updated:** 2 November 2026 (step 7, D-090; signed tags, D-094; earlier: step 3 hooks, D-042; 7 steps, D-018; scope cuts, D-019).
 
 ---
 
@@ -39,7 +39,7 @@ One step = one session: `/plan-step` → approve → build → `/verify` → `/s
   - Build and test tools are dev dependencies, pinned with a lockfile.
 - **Testing:** done against a fixed Claude Code version, never just "latest".
 - **CI:** GitHub Actions on macOS, Windows and Linux, with actions pinned to commit IDs (not tags).
-- **Releases:** semantic versions, SHA-256 checksums.
+- **Releases:** semantic versions, SHA-256 checksums, and tags signed by the maintainer from `v0.1.0-rc.2` on (D-094).
 - **Fake secrets only:** built at test time from pieces, never written whole in a file.
 
 ---
@@ -63,7 +63,7 @@ Done so far: repo setup (old 0.0) and the probe mod `experiments/step0-probe/` (
 | 0.9 | Settings hooks can change a tool's input (`PreToolUse`), and whether they can rewrite a built-in tool's output (`PostToolUse`) | Backup lock limits (5.2) |
 | 0.10 | A plugin hides content in the VS Code panel and the desktop Code tab | Surfaces (4) |
 | 0.11 | Claude Code accepts a local mock API through `ANTHROPIC_BASE_URL` (what env and auth it needs) | The leak test kit (20) |
-| ~~0.12~~ | ~~Lowest working Claude Code version~~ | Parked (spec §23, D-019) |
+| ~~0.12~~ | ~~Lowest working Claude Code version~~ | Settled: the stated minimum is the oldest tested version (D-086) |
 | 0.13 | Node is available where the backup lock runs. If not, we ship it as a single program file. | Backup lock |
 | 0.14 | Whether `disableAllHooks` (in project, local or user settings), `--bare` and `CLAUDE_CODE_SIMPLE` switch off the mod and the settings hooks (D-021) | Self-protection, known limits (3, 17, 22), `doctor` |
 
@@ -209,6 +209,7 @@ Then **Audit 1**.
 6. **Release:** step 6 ships the release candidate `v0.1.0-rc.1` (tag, archive, SHA-256 checksums, changelog); `v0.1.0` follows the two weeks of daily use and the hand checks. The install line points at a `release` branch, set as the repo's default; step branches still go into `develop`, and each release merges `develop` into `release` (D-083).
 7. **Final name** chosen and checked (spec header): AegisContext (D-081).
 8. **Built-in guard and organization install** measured in CI: `npm run leak-test:guarded` and `npm run leak-test:org` (D-082).
+9. **Signed tags** from `v0.1.0-rc.2` on (D-094). The maintainer signs; the tool never holds the key.
 
 Before release, the maintainer uses it for their own daily work for at least two weeks.
 
@@ -226,6 +227,7 @@ Then **Audit 2**.
 | False alarms not higher than the published limit; code set fully unhidden | Blocks release |
 | All tests pass on the pinned Claude Code version and all three operating systems | Blocks release |
 | Tested-versions list and scores published | Blocks release |
+| The release tag is signed, and the public key is published (from `v0.1.0-rc.2` on) | Blocks release |
 
 Targets for speed, catch rate and false alarms are set by the maintainer in Step 5 and published in the repo. Any change to a target is noted in the changelog.
 

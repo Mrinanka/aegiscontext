@@ -108,3 +108,8 @@ test('the limits of the backup lock name skill text wherever they are listed (th
   assert.ok(says(spec, "It doesn't cover `@` files"), 'spec section 22')
   assert.ok(says(read('docs', 'personal.md'), 'It does **not** cover `@` files'), 'docs/personal.md')
 })
+
+test('the README command table lists every /redact subcommand', () => {
+  const table = read('README.md').split('\n').filter(l => l.startsWith('| `/redact')).join('\n')
+  for (const name of SUBCOMMANDS) assert.ok(table.includes(`/redact ${name}`), `the README table has no /redact ${name}`)
+})

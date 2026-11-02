@@ -47,6 +47,7 @@ An administrator installs the plugin in the `prepend` tier through managed setti
 | `/redact` | Status of both locks, the mode, and what was hidden this session |
 | `/redact add [--label name]` | Register a secret of your own, pasted into a box (never on the command line) |
 | `/redact learn` | Pick secrets from your `.env*` files |
+| `/redact remove` | Pick saved secrets to remove, by label (it shows no values) |
 | `/redact allow <tag>` | Mark a hidden value as harmless (`--always` to remember it) |
 | `/redact backup` | Copy the backup lock and print its settings |
 | `/redact self-check` | Built-in test cases; `--report` writes a shareable result |
@@ -76,7 +77,7 @@ Remove the plugin with `/plugin uninstall aegiscontext`. Saved secrets stay in y
 
 ## Help
 
-Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md). Bugs: open an issue and include the output of `/redact doctor`. Security problems: [SECURITY.md](SECURITY.md), privately. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Design: [docs/spec.md](docs/spec.md).
+Check a download or run the leak tests yourself: [docs/verify.md](docs/verify.md). Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md). Bugs: open an issue and include the output of `/redact doctor`. Security problems: [SECURITY.md](SECURITY.md), privately. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). Design: [docs/spec.md](docs/spec.md).
 
 Other tools use the name "Aegis" for related things (for example a secrets detector for Claude Code that runs as an MCP server, and a Kubernetes secrets store). This is a different project.
 

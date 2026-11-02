@@ -37,7 +37,7 @@ Then:
 
 Exit codes: 0 pass, 1 a fake was seen (or a baseline was blind), 2 the run was invalid or badly called.
 
-Three more runs write the **machine's managed settings file** while they run, so they refuse to start without `--allow-managed-file` (the npm scripts pass it). They run in CI. Run them by hand only on a test machine, and note that on Windows you need an administrator and on macOS and Linux `sudo -n` must work. The kit never overwrites a managed file that is already there and removes its own when done.
+The runs below write the **machine's managed settings file** while they run, so they refuse to start without `--allow-managed-file` (the npm scripts pass it). They run in CI. Run them by hand only on a test machine, and note that on Windows you need an administrator and on macOS and Linux `sudo -n` must work. The kit never overwrites a managed file that is already there and removes its own when done.
 
 | Command | What it proves |
 |---|---|
@@ -51,11 +51,36 @@ Three more runs write the **machine's managed settings file** while they run, so
 
 - It tests the pinned Claude Code (see [tested-versions.md](tested-versions.md)), against a pretend model. It does not call the real API.
 - No network traffic is **proven** only on Linux, where a no-network run is part of CI. On Windows and macOS the proxy trap sees only traffic that honours proxy settings.
+- The login runs use a made-up login. They prove that a Team or Enterprise plan seats the built-in guard and what happens then, not how a real account behaves.
 - The VS Code extension and the desktop app run their own copy of Claude Code; they were checked by hand once per release ([release-checklist.md](release-checklist.md)), not by the kit.
+
+## Check a release
+
+Release tags from `v0.1.0-rc.2` on are signed with the maintainer's GPG key. `v0.1.0-rc.1` is not signed. `SHA256SUMS` sits in the same release as the archives, so it catches a damaged download but not a tampered release. The signature is what shows the tag came from the maintainer.
+
+Take the key from the maintainer's GitHub profile, not from the archive you are checking:
+
+```
+curl -s https://github.com/Mrinanka.gpg | gpg --import
+git clone https://github.com/Mrinanka/aegiscontext.git
+cd aegiscontext
+git tag -v <tag>
+```
+
+Look for `Good signature`, and compare the key's fingerprint with the one in [SECURITY.md](../SECURITY.md). A warning that the key is "not certified with a trusted signature" only means you have not told gpg to trust it yet. `BAD signature`, or `No public key` after the import, means stop.
+
+The signature covers the tag, not the archives, so tie the two together. Rebuild the `.tar.gz` from the tag you just checked:
+
+```
+git archive --format=tar.gz --prefix=aegiscontext-<tag>/ -o mine.tar.gz <tag>
+sha256sum mine.tar.gz
+```
+
+The hash must equal the `.tar.gz` line in the release's `SHA256SUMS`. Use the `.tar.gz`: the `.zip` rebuilt with a different hash. For `v0.1.0-rc.1`, a rebuild on Windows matched the file made on Linux in CI.
 
 ## A trial in your organization
 
-1. Run `npm run leak-test:org` on one managed test machine.
+1. Run `npm run leak-test:org` on one managed test machine, and `npm run leak-test:org-observe` if you will start in `observe` mode.
 2. Roll out in `observe` mode to a small group and review the log for false alarms.
 3. Tune with `allow` and `rules.off`.
 4. Switch to `enforce`.

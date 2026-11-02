@@ -2,7 +2,7 @@
 
 Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
-**Current focus:** Step 7 on `step-7`, the fixes planned before daily use (D-090). `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. After step 7: the owner tags `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
+**Current focus:** Step 7 on `step-7`, the fixes planned before daily use (D-090). `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 7: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
 
 ## Steps
 
@@ -66,8 +66,8 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - A failed store read can take 20 s, and the retry runs inside a hook, so that row waits.
 - Step 6: doctor reports the plugin's tier by watching its own `$.command.list()` call pass a `command.list` hook (`next.origin.tier`). A `claude -p` run on 2.1.316 (Windows) printed `Plugin tier: user` with `--plugin-dir` and from a marketplace install, where the debug log says `aegiscontext@aegiscontext` and `next.origin.plugin` holds the bare name. `prepend` was not seen. "Managed" is read from the managed settings holding our `aegisContext` key or enabling our own plugin; `tests/doctor-managed-real.test.ts` checks that against a real managed file in CI, and now also that `prompt.compose` does not reach a user plugin under the real guard.
 - The guard warning itself (R-05a) was seen under the real guard for the first time in CI run 41339214316, on all three systems: `$.ui.log` reaches Claude Code's debug log, and the kit requires it in a guarded scenario that sent a request and forbids it in an org run (D-088).
-- The guard's Team or Enterprise trigger is measured by hand, not in CI: CI seats the guard with a managed file. A scratch run on 2026-11-02 (Windows, 2.1.316) put a made-up `.credentials.json` with `subscriptionType` in the run's config folder, with no API key and no managed file. The debug log said "seated outermost: the organization is team" (and `enterprise`), while `pro` and no login stayed unseated. On a scratch copy of the kit, the guarded doors matched `GUARDED_OPEN` (21 of 98: `claude-md`, `hook-context`, `skill-text`), and `hold` refused all three (0 of 21). Those runs are now `npm run leak-test:guarded-login` and `-hold` (D-092): a login makes Claude Code try `api.anthropic.com`, which the proxy refuses and the report marks as expected.
-- The backup lock does not cover skill text. A scratch run of the `skill-text` door against the backup lock alone (2026-11-02, Windows, 2.1.316) saw 7 of 7 fakes. The door is still in neither `BACKUP_INSIDE` nor `BACKUP_OUTSIDE`, so the kit doesn't run it there, and spec §5.2 and §22 and `docs/personal.md` don't list it.
+- The guard's Team or Enterprise trigger is measured with a made-up login, not a real account, on all three systems in CI (run 41479307065). The first scratch run on 2026-11-02 (Windows, 2.1.316) put a made-up `.credentials.json` with `subscriptionType` in the run's config folder, with no API key and no managed file. The debug log said "seated outermost: the organization is team" (and `enterprise`), while `pro` and no login stayed unseated. On a scratch copy of the kit, the guarded doors matched `GUARDED_OPEN` (21 of 98: `claude-md`, `hook-context`, `skill-text`), and `hold` refused all three (0 of 21). Those runs are now `npm run leak-test:guarded-login` and `-hold` (D-092): a login makes Claude Code try `api.anthropic.com`, which the proxy refuses and the report marks as expected.
+- The backup lock does not cover skill text. A scratch run of the `skill-text` door against the backup lock alone (2026-11-02, Windows, 2.1.316) saw 7 of 7 fakes. The door is in `BACKUP_OUTSIDE`, so `leak-test:backup-limits` proves it on every CI run, and spec §5.2 and §22 and `docs/personal.md` list it. It is a documented limit, not a fix (D-090).
 - Audit 2's `/security-review` ran on the staged step 6 code on 2026-11-01 (16:47 UTC): no high-confidence findings. Its one hardening note, the org run's predictable folder name, is fixed (`fs.mkdtempSync`, `tools/leak-test/run.ts`). `/code-review high` ran at 17:49 UTC. Neither saw D-089, and the security review did not see D-087 or D-088 either. Those were proven by the kit in CI instead.
 - A wrong `<MARKETPLACE-FOLDER>` was tried with the snippet's settings in a scratch user settings file, not a managed one (D-020): no plugin loaded, and only the debug log said so. The real managed path should behave the same; not measured.
 - `--always` on a value whose store save fails stays harmless for the session only, and says so.
@@ -80,6 +80,9 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - Step 6: seven worker kills in one session did not unload the plugin (findings, `budget-repeat-many`); the docs' claim of unloading was not reproduced.
 
 - A value marked harmless with `/redact allow` in this session stays harmless until the session ends, even after `/redact remove` takes its saved entry out (D-091).
+
+- A path with `\.env` showed as `project.env` in the `/redact` list (most likely Markdown eating the backslash; not checked).
+- No signing key exists yet, and the release workflow does not check a tag's signature, so `git tag -v` in the checklist is the only check (D-094).
 
 ## Gotchas
 
@@ -234,4 +237,7 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 ### 2026-11-02: step 7 (fixes before daily use)
 - Built on `step-7`: skill text in the backup lock's limits, the doubled name, `--login` and `--observe` on the kit, `/redact remove` (D-090 to D-093). The owner approved one test change: `shield.test.ts:100` searched for the name to prove a warning, and now searches for the warning's words.
 - Corrected an earlier claim: a removed value stops being hidden at once, not at the next session.
-- Next: a wip push for CI, because `leak-test:org-observe` and macOS and Linux only run there; then `/verify`, `/security-review` and `/code-review high` on everything since `2f00d31`, then `/ship`.
+- CI run 41479307065 on wip `d22943d`: all 10 jobs green on Windows, macOS and Linux. `leak-test:org-observe` 98 of 98 seen; `guarded-login` 21 of 98, the same as the managed guard; `-hold` 0 of 21; Enterprise 7 of 7 at `skill-text`; `backup-limits` 49 of 49; `leak-test` 0 of 112. The login run works on macOS too.
+- `/redact remove` is proven in hook tests and refuses correctly under `claude -p`, but its pane has not been seen in a real terminal. The doubled name is gone in tests and the debug log, not yet seen on an interactive screen. Both are in the hand checks.
+- Next: `/verify`, `/security-review` and `/code-review high` on everything since `2f00d31`, then `/ship`.
+- Signed tags decided (D-094): GPG, from `v0.1.0-rc.2` on. The owner makes the key; no release until then. The docs sweep also fixed the README table, the count in `docs/verify.md` and the rc.1 labels, and closed the lowest-version hunt. `tests/docs.test.ts` now fails if the README table misses a subcommand.

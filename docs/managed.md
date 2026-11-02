@@ -11,7 +11,7 @@ Two reasons:
 
 ## What you need on each machine
 
-1. **A marketplace folder** holding the release: verify a release archive (`aegiscontext-<tag>.tar.gz` or `.zip`) against `SHA256SUMS`, then unpack it into a folder of your choice, for example `/opt` (macOS, Linux) or `C:\Program Files\AegisContext` (Windows). The archive holds one folder, `aegiscontext-<tag>` (for example `aegiscontext-v0.1.0-rc.1`), and **that folder is the marketplace folder**: it holds `.claude-plugin/marketplace.json` and `plugin/`. A path one level off loads no plugin and shows no error on screen, so run the check below on one machine first.
+1. **A marketplace folder** holding the release: check the signed tag ([verify.md](verify.md#check-a-release)), verify a release archive (`aegiscontext-<tag>.tar.gz` or `.zip`) against `SHA256SUMS`, then unpack it into a folder of your choice, for example `/opt` (macOS, Linux) or `C:\Program Files\AegisContext` (Windows). The archive holds one folder, `aegiscontext-<tag>` (for example `aegiscontext-v0.1.0-rc.2`), and **that folder is the marketplace folder**: it holds `.claude-plugin/marketplace.json` and `plugin/`. A path one level off loads no plugin and shows no error on screen, so run the check below on one machine first.
 2. **Managed settings** that name the folder, enable the plugin, and list it first in `prependPlugins`: [snippets/managed-plugin.json](snippets/managed-plugin.json), with `<MARKETPLACE-FOLDER>` replaced by the full path of that folder:
 
    ```json
