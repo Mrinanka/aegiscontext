@@ -100,7 +100,7 @@ test('fileProblems: the exact text, a missing file, and a fake in a file that mu
     fs.writeFileSync(path.join(dir, 'clean.txt'), 'only placeholders [REDACTED:X #aaaaaaaaaaaaa]\n')
     fs.writeFileSync(path.join(dir, 'dirty.txt'), `leak ${fake}\n`)
     assert.deepEqual(fileProblems(dir, { 'a.txt': 'same\n' }, ['clean.txt'], needles), [])
-    assert.deepEqual(fileProblems(dir, { 'a.txt': 'other\n' }, [], needles), ['a.txt is not what it should be'])
+    assert.deepEqual(fileProblems(dir, { 'a.txt': 'other\n' }, [], needles), ['a.txt is not what it should be (5 characters, 2 lines; expected 6, 2)'])
     assert.deepEqual(fileProblems(dir, { 'gone.txt': 'x' }, [], needles), ['gone.txt is missing'])
     assert.deepEqual(fileProblems(dir, {}, ['dirty.txt'], needles), ['dirty.txt holds a fake'])
     assert.deepEqual(fileProblems(dir, {}, ['absent.txt'], needles), ['absent.txt is missing'])

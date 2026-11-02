@@ -274,7 +274,7 @@ export function fileProblems(dir: string, expected: Record<string, string>, clea
   for (const [name, text] of Object.entries(expected)) {
     const got = read(name)
     if (got === undefined) problems.push(`${name} is missing`)
-    else if (got !== text) problems.push(`${name} is not what it should be`)
+    else if (got !== text) problems.push(`${name} is not what it should be (${got.length} characters, ${got.split('\n').length} lines; expected ${text.length}, ${text.split('\n').length})`)
   }
   for (const name of clean) {
     const got = read(name)
@@ -326,7 +326,9 @@ function removeFolder(dir: string): boolean {
 type ScenarioOutcome = { doors: DoorState[]; runs: RunResult[]; unreadable: number; failed: boolean; leftover: boolean; held: boolean }
 
 async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; port: number }, disk: Map<string, Set<string>>, allNeedles: Needle[]): Promise<ScenarioOutcome> {
-  const base = fs.mkdtempSync(path.join(opts.scratch ?? os.tmpdir(), 'leak-'))
+  // The real path: a Windows runner's temp folder has an 8.3 short name (RUNNER~1), and Claude Code then treats a file
+  // in it as outside the working folder and refuses a Write or Edit (found in step 8, spike S7).
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(opts.scratch ?? os.tmpdir(), 'leak-')))
   const work = path.join(base, 'work')
   const configDir = path.join(base, 'config')
   fs.mkdirSync(work)
