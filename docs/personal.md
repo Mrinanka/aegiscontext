@@ -20,7 +20,7 @@ Settings hooks that run the same checker with Node and take over when the main l
 2. Paste the settings into `~/.claude/settings.json` (merge the `hooks` block if you have one). The snippet is [snippets/personal.json](snippets/personal.json).
 3. Run `/redact doctor`: it should find the hooks and a current copy.
 
-It blocks a prompt that holds a secret whole, checks a tool's call before it runs, and cleans a tool's output. It does **not** cover `@` files, a failed command's error, a compaction summary, a resumed session's history, project `CLAUDE.md` text or settings-hook context. A later session refreshes an existing copy; it never makes one unasked.
+It blocks a prompt that holds a secret whole, checks a tool's call before it runs, and cleans a tool's output. It does **not** cover `@` files, a failed command's error, a compaction summary, a resumed session's history, project `CLAUDE.md` text, settings-hook context or skill text. A later session refreshes an existing copy; it never makes one unasked.
 
 ## Register your own secrets
 
@@ -28,6 +28,7 @@ It blocks a prompt that holds a secret whole, checks a tool's call before it run
 - `/redact learn` lists the values in files matching `secret_files` (default `.env*`); tick the ones to remember.
 - Saved values live in your operating system's password store (Keychain, Secret Service, or DPAPI-encrypted files on Windows).
 - `/redact allow <tag>` marks a hidden value as harmless; `--always` remembers that.
+- `/redact remove` lists what is saved, by label, date and length, and removes what you tick. A removed value stops being hidden at once, unless its shape matches a rule. It also undoes `--always`.
 
 ## Settings
 

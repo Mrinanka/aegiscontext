@@ -199,7 +199,7 @@ export const SCENARIOS: Scenario[] = [
 // The backup lock (spec §5.2) covers part of what the main lock does. Inside its limits a door must stay clean;
 // outside them the kit runs the door expecting every fake to be seen, so the limits list is proven, not claimed.
 export const BACKUP_INSIDE = ['prompt-typed', 'prompt-pasted', 'read-file', 'bash-output', 'bash-large', 'mcp-result', 'subagent-read']
-export const BACKUP_OUTSIDE = ['mention-file', 'bash-failed', 'compaction-summary', 'resume', 'claude-md', 'hook-context']
+export const BACKUP_OUTSIDE = ['mention-file', 'bash-failed', 'compaction-summary', 'resume', 'claude-md', 'hook-context', 'skill-text']
 
 /** The summary door alone: the backup lock cannot clean a compaction summary, and the first prompt carries no fake for it to block. */
 export const BACKUP_ONLY: Scenario[] = [

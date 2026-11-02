@@ -18,6 +18,7 @@ import path from 'node:path'
 import { guardWarning } from '../../src/core/guard-check.ts'
 import { orgPluginSnippet } from '../../src/core/snippet.ts'
 import { releaseFolder, writeArchive } from '../release/pack.ts'
+import type { LoginPlan } from './login.ts'
 import { GUARDED_ONLY, SCENARIOS, type Scenario } from './scenarios.ts'
 
 export type TierMode = 'guarded' | 'org'
@@ -88,7 +89,7 @@ const MODULE_LINE = /hooks module (\S+) loaded \([^)]*?\btier (\w+)\)/g
  * What a debug log must show for a run to count: our plugin loaded in the tier under test, and no sign that
  * the built-in guard was left out. Returns the problem, or undefined when the log proves the tier.
  */
-export function tierProblem(log: string, mode: TierMode): string | undefined {
+export function tierProblem(log: string, mode: TierMode, plan?: LoginPlan): string | undefined {
   if (/\bnot seated\b/.test(log)) return 'the debug log says the built-in guard was "not seated", so the machine is not set up as the run claims'
   const want = mode === 'org' ? 'prepend' : 'user'
   const ours = [...log.matchAll(MODULE_LINE)].filter(m => (m[1] ?? '').startsWith('aegiscontext@'))
@@ -97,6 +98,18 @@ export function tierProblem(log: string, mode: TierMode): string | undefined {
   if (wrong) return `the tool loaded in tier ${wrong[2]}, not tier ${want}`
   if (mode === 'guarded' && !/sec-default@builtin seated outermost/.test(log)) return 'the debug log never shows the built-in guard seated; the managed settings file may not have been read'
   if (mode === 'org' && !/sec-default@builtin seated by managed prependPlugins/.test(log)) return 'the debug log never shows the built-in guard seated by prependPlugins'
+  // Also proves no managed file was left on the machine: with one, the log gives that as the reason instead.
+  if (plan !== undefined && !log.includes(`sec-default@builtin seated outermost: the organization is ${plan}`)) return `the debug log never shows the built-in guard seated by a ${plan} login`
+  return undefined
+}
+
+/**
+ * What the plugin's log must show in an observe run. Every fake being seen proves nothing by itself, because a tool
+ * that never ran gives the same result; the log's "would have hidden" lines are what separate the two.
+ */
+export function observeProblem(log: string): string | undefined {
+  if (log.includes('"action":"hide"')) return 'the plugin hid a value in observe mode'
+  if (!log.includes('"action":"would-hide"')) return 'the plugin log has no "would have hidden" line, so nothing proves observe mode ran'
   return undefined
 }
 

@@ -3,7 +3,7 @@
 
 import type { EngineInterface } from 'claude-code'
 import { backendFor, type Exec, type Files, type StoreOS } from './lib/core/backends.ts'
-import { loadList, saveList, type Backend, type SecretEntry, type StoreStatus } from './lib/core/store.ts'
+import { loadList, loadUsable, removeEntries, saveList, type Backend, type SecretEntry, type StoreStatus } from './lib/core/store.ts'
 import { dataDir, joinPath } from './paths.ts'
 import { writeLog } from './log-file.ts'
 import { warn } from './warn.ts'
@@ -54,13 +54,21 @@ export async function loadRegisteredSecrets($: EngineInterface): Promise<StoreLo
 /** Adds to the saved list. Refused while the list can't be read, because a save would replace it. */
 export async function addToList($: EngineInterface, added: readonly SecretEntry[]): Promise<number> {
   const b = await backend($)
-  const loaded = await loadList(b)
-  if (loaded.warning) throw new Error(loaded.warning)
-  if (loaded.unavailable) throw new Error(`the password store is ${loaded.unavailable}, so nothing can be saved`)
-  const known = new Set(loaded.entries.map(e => e.value))
+  const entries = await loadUsable(b)
+  const known = new Set(entries.map(e => e.value))
   const fresh = added.filter(e => !known.has(e.value))
-  if (fresh.length > 0) await saveList(b, [...loaded.entries, ...fresh])
+  if (fresh.length > 0) await saveList(b, [...entries, ...fresh])
   return fresh.length
+}
+
+/** The saved list, oldest first. Throws when it can't be read. */
+export async function savedEntries($: EngineInterface): Promise<SecretEntry[]> {
+  return loadUsable(await backend($))
+}
+
+/** Takes values out of the saved list, and says how many went. Refused while the list can't be read. */
+export async function removeFromList($: EngineInterface, values: readonly string[]): Promise<number> {
+  return removeEntries(await backend($), values)
 }
 
 export async function storeReport($: EngineInterface): Promise<{ status: StoreStatus; count: number; warning?: string }> {

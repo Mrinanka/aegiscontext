@@ -2,6 +2,29 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org). A change to a default is called out under **Changed defaults**.
 
+## 0.1.0-rc.2 (release candidate)
+
+Fixes from the review of rc.1, made before the two weeks of daily use so that they cover the final code.
+
+### Added
+
+- `/redact remove`: pick saved values to remove, by label, date and length. It also undoes `/redact allow --always`.
+
+### Changed
+
+- The plugin's name no longer shows twice on warnings and log lines.
+- The backup lock's limits now name skill text, which it does not cover.
+
+### Measured
+
+- The built-in guard under a Team or Enterprise login (`npm run leak-test:guarded-login`), and the organization install in observe mode (`npm run leak-test:org-observe`).
+
+### Release
+
+- Tags are signed with the maintainer's GPG key from this version on. `v0.1.0-rc.1` is not signed. See `docs/verify.md`, "Check a release".
+
+No default changed.
+
 ## 0.1.0-rc.1 (release candidate)
 
 The first public release candidate. `v0.1.0` follows two weeks of daily use and the hand checks in `docs/release-checklist.md`.

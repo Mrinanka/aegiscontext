@@ -44,7 +44,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-016 | Step 0 probe lives in `experiments/step0-probe/`, loaded with `--plugin-dir` | accepted | 0.A | 5.1 |
 | D-017 | Probe log: `<cwd>/.step0-probe/<session id>.jsonl`, metadata only | accepted | 0.A | 5.1 |
 | D-018 | Slim workflow: 7 steps, 3 commands, 2 audits | accepted | step 0 | — |
-| D-019 | Scope cuts: test sets and release extras parked | accepted | step 0 | 4, 7.3, 20, 23 |
+| D-019 | Scope cuts: test sets and release extras parked | accepted; signed tags superseded by D-094, lowest-version hunt settled by D-086 | step 0 | 4, 7.3, 20, 23 |
 | D-020 | Step 0 checks: local mock for headless runs, temporary managed settings file, macOS/Linux finished in step 1 | accepted | step 0 | 4, 5.3, 8.1, 20 |
 | D-021 | Add check 0.14: hook kill switches (`disableAllHooks`, `--bare`, `CLAUDE_CODE_SIMPLE`) | accepted | step 0 | 3, 17, 22 |
 | D-022 | Apply the step 0 findings to the spec | accepted | step 0 | 4, 5, 6.1, 12, 18, 20, 22 |
@@ -115,6 +115,11 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-087 | Under `on_check_failure: hold`, a guard pass-over refuses the request | accepted | 6 | 5.3, 12, 22 |
 | D-088 | Any one sign seats the guard; the warning names hook context and is proven in CI; the org run uses a real archive | accepted | 6 | 5.3, 22 |
 | D-089 | Skill text is a door, named in the warning and measured under the guard | accepted | 6 | 5.3, 22 |
+| D-090 | Step 7: fixes before daily use, then `v0.1.0-rc.2` | accepted | 7 | 5.2, 22 |
+| D-091 | `/redact remove`: a picker, with no value on the command line | accepted | 7 | 8, 15 |
+| D-092 | The guard's login path is measured with a made-up login; one host is let off the network rule there | accepted | 7 | 20, 22 |
+| D-093 | Observe from managed settings is measured on the organization install | accepted | 7 | 13, 20 |
+| D-094 | Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on | accepted | 7 | 19, 23 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -177,7 +182,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Context: When a check fails or times out (Claude Code gives each hook 10 s), the content either goes through or is held back.
 - Options considered: `allow` with a warning / `hold`.
 - Decision: Default `allow`, with a visible warning and a log entry every time. `hold` is available and lockable; the Managed-mode docs recommend it.
-- Why: Recorded in the first draft as the owner's decision; the detailed reason was not written down. *(Owner: add your reason here.)*
+- Why: A failed check should not stop someone's work. Under `hold`, a slow password store or a hook that times out stops the request, and a tool that gets in the way gets switched off (plan, Risks). Anyone who prefers safety to flow can set `hold` with one setting, and an administrator can lock it. Written down by the owner on 2026-11-02; there is no measurement behind it.
 - Trade-offs: A crash or slowdown lets that piece of content reach the model unchecked. The warning makes sure the user knows.
 - Revisit when: The pilot shows failures happen often enough to matter, or adopters ask for a safer default.
 - Links: spec §12; R-03, R-12.
@@ -856,10 +861,53 @@ Tiny clarifications go under **Minor** at the bottom.
 - Rejected: Recording it in Known issues only.
 - Evidence: the 2.1.316 binary's `register` of `sec-default` (`isSkillRow`); on Windows, with no guard, the door shows 7 of 7 fakes with no tool and 0 of 7 with the plugin. D-087's and D-088's kit runs were green on all three systems in CI run 41339214316: org 0 of 91, guarded 14 of 91 (7 at each listed door), hold 0 of 14.
 
+## D-090: Step 7: fixes before daily use, then `v0.1.0-rc.2`
+- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan)
+- Decision: Five items are built on `step-7` before the two weeks of daily use start: skill text in the backup lock's limits, `/redact remove`, the doubled name, and the login and observe runs. The owner then tags `v0.1.0-rc.2`, and the daily use and hand checks run on that.
+- Why: Daily use on rc.1 would not cover code added after it. A scratch run also showed the backup lock leaks skill text (7 of 7 fakes) with no doc saying so. The same run is now `leak-test:backup-limits`, so the limit is proven.
+- Rejected: Putting the fixes after the two weeks, which would mean starting them again.
+- Note: skill text can't be fixed in the backup lock as far as is known: it reaches the model as its own message, and the lock's hooks see prompts, tool calls and tool results. That cause was not traced, so the docs give only the measurement.
+
+## D-091: `/redact remove`: a picker, with no value on the command line
+- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan)
+- Decision: A pane lists saved values by label, date and length, newest first, with nothing ticked. The values stay in the worker's memory, never in `$.state`. Anything after the subcommand is refused and masked, as with `add`. It removes one or more, all or nothing, through `saveList`. A removed value stops being hidden on the next row, unless its shape matches a rule, and the message says so. The newest 200 are shown, and the pane says when there are more.
+- Why: The only other way to undo a mistaken save was deleting the whole store. Deleting by value on the command line would put the secret in the transcript.
+- Rejected: A "remove all" button; the documented uninstall already does that. Showing a hint of the value: password-label values never get one (spec §9). Paging past 200: spec §8.1 allows about 1,900, but nobody has a list that long yet.
+- Trade-off: A value marked harmless with `/redact allow` in this session stays harmless until the session ends, because its tag is in `$.state`.
+- Evidence: `plugin/hooks/lock.test.ts`, `tests/core-store.test.ts`; `session.ts` `exportCatches` keeps only the tag of a registered value.
+
+## D-092: The guard's login path is measured with a made-up login; one host is let off the network rule there
+- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan)
+- Context: D-088's seat function also seats the guard on a Team or Enterprise plan, which CI never tried because no account exists.
+- Decision: `--guarded --login team|enterprise` writes a made-up `.credentials.json` into the run's own config folder and passes no API key. It needs no managed file, so it runs anywhere. The debug log must say "the organization is <plan>", which also proves no managed file was left behind. With a login, Claude Code tries `api.anthropic.com` as well as the mock, so a CONNECT to that one host doesn't invalidate these runs; the proxy still refuses it and the report prints it as "expected, refused". Every other attempt, and any plain request, still does.
+- Why: It turns "should be the same" into a measurement. The rule is relaxed for the narrowest case: a refused CONNECT sends nothing, so the made-up token never leaves.
+- Rejected: Setting up a real Team account in CI, which would put a real credential there.
+- Limit: It proves the plan value seats the guard, not how a real account behaves. A new Claude Code version may change this path; the run then fails with "not seated".
+- Evidence: the 2.1.316 binary's `yJr` and `gr()`; on Windows, team and enterprise seated it, and pro and no login did not; `leak-test:guarded-login` 21 of 98 at the `GUARDED_OPEN` doors, `-hold` 0 of 21.
+
+## D-093: Observe from managed settings is measured on the organization install
+- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan)
+- Decision: `--org --observe` adds `mode: observe` to the organization install's managed settings. Every fake must be seen, and each scenario's plugin log must hold a `would-hide` line and no real hide. Seeing every fake alone proves nothing, because a tool that never ran looks the same.
+- Why: `docs/managed.md` tells organizations to start there, and it was the open part of plan step 5 item 6.
+- Not covered: The backup lock in managed safe mode under `observe`, and the banner under `claude -p`, which has no screen.
+- Evidence: a rehearsal with `mode: observe` in user settings: 98 of 98 seen, every scenario logged. The managed run itself is CI only (D-020).
+
+## D-094: Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on
+- Date / Step: 2026-11-02 / 7        Status: accepted
+- Context: This reopens the signed-tags part of D-019, which parked them because `SHA256SUMS` covers integrity. The owner made them high priority: the checksums sit in the same release as the archives, so they catch corruption, not tampering, and this is a security tool asking to be trusted.
+- Decision: Every release tag from `v0.1.0-rc.2` on is signed with `git tag -s`, and an unsigned tag blocks a release. The public key is on the maintainer's GitHub profile and its fingerprint in `SECURITY.md`. `v0.1.0-rc.1` stays unsigned, because a published tag is never moved or made again. No release is made until the key exists.
+- Why GPG: In a scratch repo on Git 2.49 both kinds signed and verified. With GPG a stranger imports one public key and runs `git tag -v`. With SSH they must write an allowed-signers file first, and SSH keys have no expiry or revocation.
+- Rejected: Signing only `v0.1.0`, which leaves rc.2 open to the same doubt. SSH signing. A key held in CI: the point is that the tag comes from the maintainer.
+- Limit: The release workflow does not check the signature (Known issues), so the checklist's `git tag -v` is the check. A key lost or replaced means publishing the new fingerprint.
+- Evidence: the scratch run; `https://github.com/Mrinanka.gpg` answers 200 and said no key was uploaded on 2026-11-02. A `.tar.gz` rebuilt from `v0.1.0-rc.1` on Windows had the same SHA-256 as the one CI made on Linux, which ties a signed tag to its archive; the `.zip` did not match, though the files inside the `.tar.gz` are the same 315 as the tag's.
+
 ---
 
 ## Minor
 
+- 2026-11-02 / 7: The owner approved changing one line of `plugin/hooks/shield.test.ts`: it proved a warning by searching for the plugin's name, and now searches for the warning's words.
+- 2026-11-02 / 7: The owner asked to ship step 7 before `/verify` and the audits, and to come back if errors appear.
+- 2026-11-02 / 7: The lowest-version hunt (old check 0.12) is closed: D-086 made the oldest tested version the stated minimum, so spec section 23 no longer lists it.
 - 2026-11-01 / 5: The owner approved changing one line of `tests/core-settings.test.ts` (it expected "personal_data ... not available yet", which step 5 makes false by design, D-037). The test title above it said the setting "does nothing yet"; it was left as it was at first, because the approval was for the one line. After `/verify` the owner asked for the leftovers to be done, and the title was reworded (title only, same checks). The same went for three titles in `tests/checker-scan.test.ts` that named the removed repeated-line memory (D-074).
 - 2026-10-31: "secret-shield" is a working name. The final name is chosen in part 6.4 (no "Claude" or "Anthropic" in it).
 - 2026-10-31 / 0.0: NOTICE copyright line is "Copyright 2026 Mrinanka Dhar", with the project as "secret-shield (working name)" (renamed in 6.4).

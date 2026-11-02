@@ -1,6 +1,6 @@
 // Plain-text summary of a kit report. Labels and counts only.
 
-import type { DoorResult, Report, Verdict } from './kit.ts'
+import { unexpectedAttempts, type DoorResult, type Report, type Verdict } from './kit.ts'
 
 const WORD: Record<Verdict, string> = { pass: 'PASS', leak: 'LEAK', blind: 'BLIND', invalid: 'INVALID' }
 
@@ -30,7 +30,8 @@ export function formatReport(r: Report): string {
     lines.push(`run failed: ${run.scenario} #${run.run}, exit ${run.exit}${run.timedOut ? ', timed out' : ''}`)
     for (const l of run.stderr ?? []) lines.push(`  ${l}`)
   }
-  for (const a of r.network.attempts) lines.push(`network attempt: ${a.kind} ${a.host}`)
+  const unexpected = unexpectedAttempts(r.network.attempts, r.network.expected)
+  for (const a of r.network.attempts) lines.push(`network attempt: ${a.kind} ${a.host}${unexpected.includes(a) ? '' : ' (expected, refused)'}`)
   if (r.unreadable > 0) lines.push(`requests that could not be read: ${r.unreadable}`)
   if (r.leftovers > 0) lines.push(`scratch folders not removed: ${r.leftovers}`)
   if (r.disk.length > 0) {

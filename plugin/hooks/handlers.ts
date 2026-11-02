@@ -311,7 +311,7 @@ export const OBSERVE_BANNER = 'OBSERVE MODE, secrets are NOT being hidden'
 /** A command that can't be registered must never stop a row or a prompt being cleaned. */
 export async function registerCommands($: EngineInterface): Promise<void> {
   try {
-    await $.command.register({ name: COMMAND, description: 'aegiscontext: status, add, learn, allow, self-check, doctor', argumentHint: '[add|learn|allow|self-check|doctor]' })
+    await $.command.register({ name: COMMAND, description: 'aegiscontext: status, add, learn, remove, allow, self-check, doctor', argumentHint: '[add|learn|remove|allow|self-check|doctor]' })
   } catch {
     warn($, 'command', 'could not register /redact; hiding carries on')
   }

@@ -100,3 +100,16 @@ test('the release workflow runs on tags, calls CI first, and makes a draft', () 
   assert.match(y, /--draft/)
   assert.match(read('.github', 'workflows', 'ci.yml'), /workflow_call:/)
 })
+
+test('the limits of the backup lock name skill text wherever they are listed (the kit proves it leaks there)', () => {
+  const says = (text: string, needle: string): boolean => text.split('\n').some(l => l.includes(needle) && /skill text/.test(l))
+  const spec = read('docs', 'spec.md')
+  assert.ok(says(spec, '**Doors it does not cover**'), 'spec section 5.2')
+  assert.ok(says(spec, "It doesn't cover `@` files"), 'spec section 22')
+  assert.ok(says(read('docs', 'personal.md'), 'It does **not** cover `@` files'), 'docs/personal.md')
+})
+
+test('the README command table lists every /redact subcommand', () => {
+  const table = read('README.md').split('\n').filter(l => l.startsWith('| `/redact')).join('\n')
+  for (const name of SUBCOMMANDS) assert.ok(table.includes(`/redact ${name}`), `the README table has no /redact ${name}`)
+})
