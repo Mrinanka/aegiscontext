@@ -7,6 +7,7 @@ name: Weekly (newest Claude Code)
 # `schedule` and `workflow_dispatch` only work for the default branch (`release`). The `push` trigger on this file's own
 # path is how it is proven on a step branch. GitHub switches a scheduled workflow off after 60 days without repository
 # activity (docs: "events that trigger workflows"), and a failed scheduled run notifies whoever last changed the cron line.
+# The kit steps use the runner's default shell, as ci.yml does: the Windows password-store door failed twice under Git Bash.
 # Until a newer Claude Code than the pin exists, this installs the pinned version itself: that is expected, not a bug.
 on:
   schedule:
@@ -65,27 +66,20 @@ jobs:
       - name: Plugin tests
         run: claude plugin test ./plugin
       - name: Leak test baseline (the kit can still see)
-        run: npm run leak-test:baseline -- --claude "$CLAUDE_NEWEST"
-        shell: bash
+        run: npm run leak-test:baseline -- --claude "${{ env.CLAUDE_NEWEST }}"
       - name: Rewrite test (a mod rewrites a Write and an Edit before the tool runs)
         run: node --test tests/rewrite-real.test.ts
         env:
           AEGIS_CLAUDE: ${{ env.CLAUDE_NEWEST }}
       - name: Leak test, every door
-        run: npm run leak-test -- --claude "$CLAUDE_NEWEST"
-        shell: bash
+        run: npm run leak-test -- --claude "${{ env.CLAUDE_NEWEST }}"
       - name: Leak test, put-back on
-        run: npm run leak-test:put-back -- --claude "$CLAUDE_NEWEST"
-        shell: bash
+        run: npm run leak-test:put-back -- --claude "${{ env.CLAUDE_NEWEST }}"
       - name: Leak test, put-back off
-        run: npm run leak-test:put-back-off -- --claude "$CLAUDE_NEWEST"
-        shell: bash
+        run: npm run leak-test:put-back-off -- --claude "${{ env.CLAUDE_NEWEST }}"
       - name: Leak test, backup lock
-        run: npm run leak-test:backup -- --claude "$CLAUDE_NEWEST"
-        shell: bash
+        run: npm run leak-test:backup -- --claude "${{ env.CLAUDE_NEWEST }}"
       - name: Leak test, backup lock limits
-        run: npm run leak-test:backup-limits -- --claude "$CLAUDE_NEWEST"
-        shell: bash
+        run: npm run leak-test:backup-limits -- --claude "${{ env.CLAUDE_NEWEST }}"
       - name: Leak test, user plugin under a Team login
-        run: npm run leak-test:guarded-login -- --claude "$CLAUDE_NEWEST"
-        shell: bash
+        run: npm run leak-test:guarded-login -- --claude "${{ env.CLAUDE_NEWEST }}"
