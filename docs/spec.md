@@ -267,7 +267,7 @@ The placeholder note added to Claude's instructions says:
 - **Restored only when** all of these hold: the rule's action is `hide`; the placeholder's tag maps to one source text in that file; the value can be kept hidden afterwards; and the copy limit allows it. Otherwise the placeholder stays as text. A new file, or a value the file doesn't hold, gets nothing restored.
 - **Copy limit.** A saved file never holds more copies of a value than the file on disk did. With `replace_all`, each match counts once.
 - **A value that can't be restored.** The save goes through and the placeholder stays, even if a real secret in the file is erased by it. This is the one exception to R-11, only while put-back is on. A message and the log say how many real values were replaced; git, or Claude Code's file backups, are the way back.
-- **A failed Edit.** If the restored `old_string` isn't in the file, the input stays as Claude wrote it, so the error can't echo a real value.
+- **A failed Edit.** If the restored `old_string` isn't in the file, or matches more than once without `replace_all`, the input stays as Claude wrote it, so the error can't echo a real value.
 - **Write and Edit only.** Bash can't restore, and NotebookEdit is left alone.
 - **Time.** Restoring and the guard share one 3,000 ms limit. Running out is a failed check (section 12).
 - **Observe mode** restores nothing.

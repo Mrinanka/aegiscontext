@@ -7,8 +7,9 @@
 //   2. scan the file on disk as a Read would; each hit gives the exact text it replaced
 //   3. a tag is restorable when every hit for it is `hide` and has the same source text
 //   4. Write: restore the content, greedy in order, no more copies of a value than the file held
-//      Edit: restore old_string first. If the result is not in the file, the input stays as Claude wrote it,
-//      so no error can echo a real value (spike S7). new_string may hold no more copies than old_string did.
+//      Edit: restore old_string first. If the result is not in the file, or matches more than once with no
+//      replace_all, the input stays as Claude wrote it, so no error can echo a real value (spike S7).
+//      new_string may hold no more copies than old_string did.
 //   5. a value is restored only if the Redactor can keep it hidden afterwards (`keepHidden`)
 
 import { findPlaceholders } from './placeholder.ts'
@@ -235,6 +236,8 @@ export function restoreInput(r: RestoreRedactor, c: RestoreCall): RestoreResult 
   if (!strings.includes('old_string')) return unchanged()
   const old = restoreText(c.input.old_string as string, budget())
   if (old.text === '' || !c.disk.includes(old.text)) return unchanged()
+  // Without replace_all the tool refuses text that matches twice, and its error repeats the text (D-096).
+  if (c.input.replace_all !== true && c.disk.indexOf(old.text) !== c.disk.lastIndexOf(old.text)) return unchanged()
   // The new text may hold no more copies of a value than the old text did.
   const next = strings.includes('new_string') ? restoreText(c.input.new_string as string, new Map(old.used)) : { text: undefined, used: new Map<string, number>() }
   const restored = sum(old.used) + sum(next.used)

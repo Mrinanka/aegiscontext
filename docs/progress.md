@@ -2,7 +2,7 @@
 
 Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
-**Current focus:** Step 8 on `step-8`: put secrets back, the weekly run and Audit 3 (D-095, D-096). `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 8: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
+**Current focus:** Step 8 is shipped as a PR into `develop`, with Audit 3 and two small fixes still open (Known issues), so it stays unticked until the audits are done. `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 8: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
 
 ## Steps
 
@@ -24,8 +24,14 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
 Bugs, unfinished bits and open questions. Features we chose not to build go in spec §23.
 
-- Put-back (step 8): `tests/docs.test.ts` rejects a row in the `docs/personal.md` settings table for a setting outside its fixed list, so `put_back` is described in its own section there and is not a table row. A one-line change to that test's `known` set would let it be a row; it needs the owner's yes.
 - Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
+- Put-back (step 8), found by `/verify`, not fixed yet: on every Write or Edit, even with put-back off, `restore` in `plugin/hooks/tools.ts` calls `putBackNow`. A throw there skips the overwrite guard under `allow` (the `tool.call` `.catch` runs the tool as written), and on macOS and Linux `osOf` starts `uname` each time. Read in the code, not measured. Treat a failure as off, and call `osOf` only when the choice file has folders.
+- Put-back (step 8), found by `/verify`, not fixed yet: the "could not restore" message goes through `warn`, which shows a kind 3 times and then every 50th (`plugin/hooks/warn.ts:12`), so a later erased secret reaches only the log. Spec §10 says a message and the log say how many.
+- Step 8 was shipped before Audit 3, and with the two "not fixed yet" items below: the owner asked to raise the PR first and run `/security-review` and `/code-review high` on it. Scope is everything since `2f00d31`, not only the PR's diff. Fixes go on `step-8`.
+- Put-back (step 8), the owner's call on 2026-11-03 (D-097): a broken managed block does not read as off. Managed `put_back: false`, `"Off"`, or a valid `off` beside any other bad managed value leaves `managedOff` false on a first load (scratch run), and a fallback takes the last good value, so a developer's or repo's `on` still counts. Only an error in `/redact doctor` says so.
+- Put-back (step 8): whether `$.state` is cleared by `/clear` is unknown (its docs say "for the session"), so the put-back note and the once-a-session notice may carry over. Check with the `/clear` hand check.
+- Put-back (step 8): `disk.includes(old_string)` is an exact match, so a multi-line Edit through a placeholder on a CRLF file is not restored if Claude's text has LF endings. It fails safe, as with put-back off. Whether Claude Code's Edit would have matched is from memory (unverified).
+- Put-back (step 8): a catch added by `keepHidden` reaches `$.state` at the next stored row, not at once, so a worker killed in between forgets it. Only a value the D-071 filter would drop depends on it.
 - `plugin/hooks/shield.test.ts` "R-12: a check that could not finish hides what it found and warns; hold withholds" takes about 4.3 s against the kit's 5 s limit on this machine, before and after step 8, and timed out once on a slow run. Not changed; watch it in CI.
 - Probe tests (`claude plugin test`) don't run in CI. The pinned `claude` now makes that possible; it wasn't added in step 1.
 - `claude plugin test` (2.1.316): a `turn.step` stream's `.result` resolves `undefined` even when the step beneath answers, contrary to its doc (`HookStream.result`, `claude-code.d.ts:5383`). Probe tests check the hold through its effects instead. Report it upstream.
@@ -156,6 +162,8 @@ Platform and tooling facts learned so far (from the old `lessons.md`).
 - A CI job waiting for a machine reads `queued`, not stuck: nothing has run. `gh run rerun <id> --failed` restarts only failed or cancelled jobs, under a new attempt.
 - `tests/no-whole-fakes.test.ts` needs staged files, so `git add -A` then `git reset -q` shows in the reflog as "reset: moving to HEAD". It moves no commit, but it does unstage whatever was staged.
 - A signed tag does not cover the archives. A `.tar.gz` rebuilt from the tag matches `SHA256SUMS`, which ties them together; a `.zip` does not.
+- Claude Code's Edit error for text that matches more than once ends with `String: <old_string>`, the same as "not found" (2.1.316 binary), so either failure echoes what the hook passed in.
+- `claude -p "/redact ..."` with no mock retries the API for minutes and prints no result. To see a command's answer in a real run, point it at the kit's mock.
 
 ## Session notes
 
@@ -287,3 +295,14 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 - Checks: `npm test` 1094 tests, 0 fail, 2 skipped; typecheck, `plugin:typecheck`, `plugin:build -- --check`, `claude plugin validate`; `claude plugin test ./plugin` 205 of 205; `leak-test:baseline` 105 of 105 seen; `leak-test:backup` 0 of 49; `leak-test:backup-limits` 49 of 49.
 - Not done: the CI run on the three systems, the weekly run on `step-8`, and Audit 3 (the owner runs `/security-review` and `/code-review high` on everything since `2f00d31`). Nothing is committed: the owner asks for a wip commit or `/ship`.
 - Next: the owner commits a wip checkpoint (or I do when asked) so CI and the weekly run can go, then `/verify`, then Audit 3, then fixes, then `/ship`.
+
+### 2026-11-03: step 8, `/verify`
+- CI on `22b1f6e`: run 41516399013, all 10 jobs green. Weekly run 41516399074, green on 3 systems, but it installed 2.1.316, the same as the pin, so it has proven the workflow and not a newer Claude Code.
+- `/verify` found an Edit whose text matches twice would be restored, and Claude Code's "several matches" error repeats it (nothing leaked: stored-row hiding removes it). Fixed with the owner's yes: spec §10, D-096 item 4, two tests written first and seen failing. Uncommitted. CI has not seen this fix.
+- On that tree, Windows: `npm test` 1096 tests, 0 fail, 2 skipped (both need CI's setup); `claude plugin test` 206 of 206; typecheck, `plugin:typecheck`, `plugin:build -- --check`, validate pass; `leak-test:put-back` and `-off` 0 of 140 each; `tests/rewrite-real.test.ts` 3 of 3 (before the fix, which does not touch it).
+- Owner's calls: a broken managed block stays as it is (D-097); `put_back` keeps its own section in `docs/personal.md`, so `tests/docs.test.ts` does not change.
+- Not done: the two small fixes in Known issues, Audit 3, then `/ship`. Audit 3's scope is `2f00d31..HEAD`. `origin/HEAD` here points at `develop`, which already holds 10 of those commits, so a run on the branch's own changes would miss steps 6 and 7.
+
+### 2026-11-03: step 8, ship
+- The owner asked to raise the PR before Audit 3 and before the two small fixes. Both stay open in Known issues, so the step is not ticked. D-097 records the broken managed block.
+- Next: the owner runs the audits on the PR; fixes go on `step-8`; then the merge, the GPG key and the rest of "Before a release candidate" in `docs/release-checklist.md`.

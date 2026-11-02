@@ -244,6 +244,15 @@ test('a failed Edit stays as Claude wrote it, so nothing can echo the value', as
   expect(JSON.stringify(w.received)).not.toContain(FAKE)
 })
 
+test('an Edit whose text matches twice stays as Claude wrote it, so the "several matches" error cannot hold the value', async ($, on) => {
+  const file = work('app.yaml')
+  const w = world(on, { files: { [file]: `a: ${FAKE}\nb: ${FAKE}\n` }, choice: '{"all":"on"}' })
+  const ph = await readIt($, w, file)
+  await $.tool.call(edit(file, ph, `${ph}2`))
+  expect(w.received[0]?.old_string).toBe(ph)
+  expect(JSON.stringify(w.received)).not.toContain(FAKE)
+})
+
 test('a new file keeps its placeholder', async ($, on) => {
   const file = work('new.yaml')
   const w = world(on, { files: { [work('app.yaml')]: `token: ${FAKE}\n` }, choice: '{"all":"on"}' })
