@@ -27,7 +27,7 @@ Until it works, shapes and labels are still hidden; saved secrets are not hidden
 
 ## doctor says Claude Code is not on the tested list
 
-It keeps working. Run `/redact self-check` and, if it passes, carry on. Tested versions: [tested-versions.md](tested-versions.md).
+It keeps working. The warning pops up on the first two sessions with a new Claude Code version, then only doctor says it. Run `/redact self-check` and, if it passes, carry on. Tested versions: [tested-versions.md](tested-versions.md).
 
 ## Too many false alarms
 

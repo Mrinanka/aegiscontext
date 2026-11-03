@@ -4,6 +4,11 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org). 
 
 ## Unreleased
 
+### Changed
+
+- Claude Code 2.1.317 is on the tested list and is the version CI tests (D-102).
+- The "not on the tested list" warning shows on the first two sessions with a new Claude Code version, not on every session. `/redact doctor` still says it (D-103).
+
 ### Docs
 
 - The engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) is now in `docs/engineering/`. The guides stay in `docs/`, with an index page.

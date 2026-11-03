@@ -1037,6 +1037,21 @@ test('R-01: a version not on the tested list warns at start and carries on', asy
   expect(stored(w).includes(FAKE)).toBe(false)
 })
 
+test('R-01: the warning shows on the first 2 session starts with a version, then only in doctor; a new version warns again', async ($, on) => {
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  // The world reads the version on each call, so an update is a change to its options.
+  const opts = { version: '9.9.9' }
+  const w = world(on, opts)
+  const shown = (v: string): number => w.ui.filter(l => l.includes(`${v} is not on the tested list`)).length
+  for (let i = 0; i < 4; i++) await start($)
+  // ui.log and ui.toast each record a shown warning.
+  expect(shown('9.9.9')).toBe(4)
+  expect(await redact($, 'doctor')).toContain('not on the tested list')
+  opts.version = '9.9.10'
+  await start($)
+  expect(shown('9.9.10')).toBe(2)
+})
+
 test('R-01: a tested version says nothing', async ($, on) => {
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   const w = world(on)
