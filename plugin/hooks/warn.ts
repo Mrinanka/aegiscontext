@@ -6,11 +6,15 @@ import type { EngineInterface } from 'claude-code'
 
 const counts = new Map<string, number>()
 
-export function warn($: EngineInterface, kind: string, text: string): void {
+/**
+ * `always`: shown every time. Only for a warning each of which matters on its own, such as a secret erased from a
+ * file by put-back (spec §10: a message says how many were replaced).
+ */
+export function warn($: EngineInterface, kind: string, text: string, o: { always?: boolean } = {}): void {
   const n = (counts.get(kind) ?? 0) + 1
   counts.set(kind, n)
-  if (n > 3 && n % 50 !== 0) return
-  const line = `aegiscontext: ${text}${n > 3 ? ` (${n} times this session)` : ''}`
+  if (o.always !== true && n > 3 && n % 50 !== 0) return
+  const line = `${text}${n > 3 ? ` (${n} times this session)` : ''}`
   try {
     $.ui.log(line)
     $.ui.toast(line)

@@ -9,6 +9,7 @@ import { createChecker } from '../src/checker/index.ts'
 import { NO_ALLOW, Redactor } from '../src/core/session.ts'
 import { DEFAULTS, type Settings } from '../src/core/settings.ts'
 import { decide, failureAnswer, type ActEnv, type Answer } from '../src/backup/act.ts'
+import type { Roots } from '../src/core/protect.ts'
 import { holdsFake, needlesFor } from '../tools/leak-test/detect.ts'
 import { makeFake, seededSource } from '../tools/test-sets/fakes.ts'
 
@@ -21,7 +22,7 @@ const needles = [...needlesFor('gh', GH), ...needlesFor('aws', AWS), ...needlesF
 const CONFIG = path.join(os.tmpdir(), 'cfg-act')
 const DATA = path.join(CONFIG, 'aegiscontext')
 
-type Opts = { settings?: Partial<Settings>; files?: Record<string, string>; registered?: string[]; ms?: number; unreadable?: string[] }
+type Opts = { settings?: Partial<Settings>; files?: Record<string, string>; registered?: string[]; ms?: number; unreadable?: string[]; roots?: Partial<Roots> }
 
 function env(o: Opts = {}): ActEnv & { logs: string[] } {
   const settings: Settings = { ...DEFAULTS, ...o.settings }
@@ -31,7 +32,7 @@ function env(o: Opts = {}): ActEnv & { logs: string[] } {
   return {
     redactor,
     settings,
-    roots: { own: [DATA], config: CONFIG, caseless: process.platform !== 'linux' },
+    roots: { own: [DATA], config: CONFIG, caseless: process.platform !== 'linux', ...o.roots },
     budgetMs: o.ms ?? 20_000,
     readFile: p => {
       if (o.unreadable?.includes(p)) throw new Error('EACCES')
@@ -194,6 +195,44 @@ test('self-protection follows a link to a file that is not there yet, whatever t
   assert.ok(denied(decide(pre('Write', { file_path: path.join(link, 'markers', 's9.json'), content: 'x' }), e).answer), 'one new level below the link')
   const elsewhere = path.join(os.tmpdir(), 'not-the-link', 'new', 'file.txt')
   assert.equal(denied(decide(pre('Write', { file_path: elsewhere, content: 'x' }), e).answer), undefined)
+})
+
+// The D-098 fixes, in the backup lock too: a path is read as Claude Code expands it, and a check that fails refuses.
+const here = { windows: process.platform === 'win32' }
+
+test('self-protection reads a path the way Claude Code expands it: ~/, spaces, relative to the working folder', () => {
+  const marker = path.join(DATA, 'markers', 's1.json')
+  const e = env({ roots: { ...here, home: CONFIG, cwd: CONFIG } })
+  for (const p of ['~/aegiscontext/markers/s1.json', ` ${marker}`, `${marker} `, path.join('aegiscontext', 'markers', 's9.json')]) {
+    assert.ok(denied(decide(pre('Write', { file_path: p, content: '{"running":true}' }), e).answer), JSON.stringify(p))
+  }
+})
+
+test('self-protection catches a command that names the data folder through the home folder or $CLAUDE_CONFIG_DIR', () => {
+  const e = env({ roots: { home: CONFIG, windows: true, configVar: true } })
+  for (const command of ['rm -rf ~/aegiscontext/store', 'rm -rf $HOME/aegiscontext/store', 'rm -rf $CLAUDE_CONFIG_DIR/aegiscontext/store', 'del %USERPROFILE%\\aegiscontext\\store']) {
+    assert.ok(denied(decide(pre('Bash', { command }), e).answer), command)
+  }
+})
+
+test('a settings change that cannot be checked is refused, even under allow', () => {
+  const settings = path.join(CONFIG, 'settings.json')
+  assert.ok(denied(decide(pre('Write', { file_path: settings, content: '{}' }), env({ files: { [settings]: '{}' }, unreadable: [settings] })).answer), 'unreadable')
+  const big = { [settings]: `{"x":"${'a'.repeat(4 * 1024 * 1024)}"}` }
+  assert.ok(denied(decide(pre('Write', { file_path: settings, content: '{"theme":"dark"}' }), env({ files: big })).answer), 'over 4 MB')
+  const dark = { [settings]: '{"theme":"dark"}' }
+  // Curly quotes Claude Code may match to straight ones: the text is not in the file as written.
+  assert.ok(denied(decide(pre('Edit', { file_path: settings, old_string: '“theme”:“dark”', new_string: '"disableAllHooks":true' }), env({ files: dark })).answer), 'text not in the file')
+  assert.ok(denied(decide(pre('Edit', { file_path: settings, old_string: '', new_string: '{"disableAllHooks":true}' }), env()).answer), 'empty old_string is the whole new file')
+  assert.equal(denied(decide(pre('Edit', { file_path: settings, old_string: '"dark"', new_string: '"light"' }), env({ files: dark })).answer), undefined, 'an ordinary Edit')
+})
+
+test('the overwrite guard reads a path the way Claude Code expands it', () => {
+  const file = path.join(os.tmpdir(), 'conf.env')
+  const disk = `DB_NAME=app\nGITHUB_TOKEN=${GH}\n`
+  const redacted = `DB_NAME=app\nGITHUB_TOKEN=[REDACTED:GITHUB_PAT ...${GH.slice(-4)} #abcdefghijklm]\n`
+  const e = env({ files: { [file]: disk }, roots: { ...here, home: os.tmpdir(), cwd: os.tmpdir() } })
+  for (const p of ['~/conf.env', ` ${file}`, 'conf.env']) assert.ok(denied(decide(pre('Write', { file_path: p, content: redacted }), e).answer), JSON.stringify(p))
 })
 
 test('an ordinary settings edit is allowed', () => {

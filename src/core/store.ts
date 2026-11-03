@@ -175,6 +175,23 @@ async function clearStrays(b: Backend, generation: number, from: number): Promis
   }
 }
 
+/** The list, for a change to it. Refuses one that can't be read, because a save would replace it. */
+export async function loadUsable(b: Backend): Promise<SecretEntry[]> {
+  const loaded = await loadList(b)
+  if (loaded.warning) throw new Error(loaded.warning)
+  if (loaded.unavailable) throw new Error(`the password store is ${loaded.unavailable}, so nothing can be saved`)
+  return loaded.entries
+}
+
+/** Takes the named values out of the saved list, all or nothing, and says how many went. */
+export async function removeEntries(b: Backend, values: readonly string[]): Promise<number> {
+  const entries = await loadUsable(b)
+  const gone = new Set(values)
+  const kept = entries.filter(e => !gone.has(e.value))
+  if (kept.length < entries.length) await saveList(b, kept)
+  return entries.length - kept.length
+}
+
 export async function saveList(b: Backend, entries: readonly SecretEntry[]): Promise<void> {
   const text = encode(JSON.stringify(entries))
   const pieces = cut(text, b.pieceBytes)

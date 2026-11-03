@@ -9,7 +9,7 @@ import { NO_ALLOW, Redactor } from '../src/core/session.ts'
 import { base64Encode, utf8 } from '../src/core/forms.ts'
 import { isChecked, outboundText, outboundVerdict } from '../src/core/outbound.ts'
 import { applyEdit, checkOverwrite, placeholdersIn } from '../src/core/guard.ts'
-import { blockedSettingsChange, isProtected, isSettingsFile, normalize, shellChangesProtected, type Roots } from '../src/core/protect.ts'
+import { blockedSettingsChange, expandPath, isProtected, isSettingsFile, normalize, shellChangesProtected, type Roots } from '../src/core/protect.ts'
 import { MAX_REGISTERED, MIN_REGISTERED, parseEnv, startsTicked, validRegistered } from '../src/core/envfile.ts'
 import { isTested, versionWarning } from '../src/core/versions.ts'
 import { dropMedia, hasMedia } from '../src/core/media.ts'
@@ -188,6 +188,69 @@ test('a shell command that changes a protected path or a kill switch is refused;
   for (const c of ['cat C:/Users/me/.claude/aegiscontext/log/a', 'grep disableAllHooks docs/spec.md', 'npm test > out.txt', 'cat .claude/settings.json', 'git commit -m "note"']) assert.equal(shellChangesProtected(c, roots), undefined, c)
 })
 
+// ---- paths as Claude Code expands them (Audit 3) ---------------------------------------------
+
+const win = { home: 'C:\\Users\\me', cwd: 'D:\\p', windows: true }
+const nix = { home: '/home/me', cwd: '/srv/p', windows: false }
+
+test('expandPath follows Claude Code: trim, ~ and ~/, /c/ on Windows, relative to the working folder', () => {
+  assert.equal(normalize(expandPath('~/.claude/aegiscontext/put-back.json', win), true), 'c:/users/me/.claude/aegiscontext/put-back.json')
+  assert.equal(normalize(expandPath('~', nix), false), '/home/me')
+  assert.equal(normalize(expandPath('  C:\\Users\\me\\.claude\\settings.json ', win), true), 'c:/users/me/.claude/settings.json')
+  assert.equal(normalize(expandPath('/c/Users/me/.claude/settings.json', win), true), 'c:/users/me/.claude/settings.json')
+  assert.equal(normalize(expandPath('/cygdrive/c/Users/me/x', win), true), 'c:/users/me/x')
+  assert.equal(normalize(expandPath('settings.json', { ...win, cwd: 'C:\\Users\\me\\.claude' }), true), 'c:/users/me/.claude/settings.json')
+  assert.equal(normalize(expandPath('a/../b', nix), false), '/srv/p/b')
+  assert.equal(normalize(expandPath('/etc/x', nix), false), '/etc/x')
+  assert.equal(normalize(expandPath('/c/x', nix), false), '/c/x', '/c/ is only a drive on Windows')
+  assert.equal(normalize(expandPath('~other/x', nix), false), '/srv/p/~other/x', 'only ~ and ~/ name the home folder')
+})
+
+test('expandPath keeps a whole path as given, and joins with the separator of the folder it starts from', () => {
+  // The OS can say Windows while paths are POSIX-shaped (a host's short environment, the hook tests on Linux and macOS).
+  const mixed = { home: '/cfg', cwd: '/work', windows: true }
+  assert.equal(expandPath('/work/.claude/settings.json', mixed), '/work/.claude/settings.json')
+  assert.equal(expandPath('.claude/settings.json', mixed), '/work/.claude/settings.json')
+  assert.equal(expandPath('~/aegiscontext/put-back.json', mixed), '/cfg/aegiscontext/put-back.json')
+  assert.equal(expandPath('x/y', win), 'D:\\p\\x\\y')
+  assert.equal(expandPath('~/.claude', win), 'C:\\Users\\me\\.claude')
+  assert.equal(expandPath('/c/Users/me', win), 'C:\\Users\\me')
+  assert.equal(expandPath('\\top\\x', win), 'D:\\top\\x')
+  assert.equal(expandPath('D:\\p\\a.json', win), 'D:\\p\\a.json')
+})
+
+test('Audit 3: each spelling of the choice file or a settings file that Claude Code expands is caught', () => {
+  const r: Roots = { ...roots, home: 'C:\\Users\\me', cwd: 'D:\\p', windows: true }
+  const at = (p: string, cwd = 'D:\\p'): string => expandPath(p, { home: 'C:\\Users\\me', cwd, windows: true })
+  for (const p of ['~/.claude/aegiscontext/put-back.json', ' C:\\Users\\me\\.claude\\aegiscontext\\put-back.json', '/c/Users/me/.claude/aegiscontext/put-back.json']) assert.equal(isProtected(at(p), r), true, p)
+  for (const p of ['~/.claude/settings.json', 'C:\\Users\\me\\.claude\\settings.json ']) assert.equal(isSettingsFile(at(p), r), true, p)
+  assert.equal(isSettingsFile(at('settings.json', 'C:\\Users\\me\\.claude'), r), true, 'a relative path in the config folder')
+  assert.equal(isSettingsFile(at('settings.json'), r), false, 'a settings.json elsewhere is not')
+})
+
+test("Audit 3: a shell command that names the tool's folder through the home folder is refused", () => {
+  const r: Roots = { ...roots, home: 'C:\\Users\\me', windows: true }
+  for (const c of [
+    'echo x > ~/.claude/aegiscontext/put-back.json',
+    'echo x > $HOME/.claude/aegiscontext/put-back.json',
+    'echo x > "${HOME}/.claude/aegiscontext/put-back.json"',
+    'Set-Content $env:USERPROFILE\\.claude\\aegiscontext\\put-back.json x',
+    'echo x > %USERPROFILE%\\.claude\\aegiscontext\\a',
+    'touch /c/Users/me/.claude/aegiscontext/store/x',
+    'rm -rf /mnt/c/Users/me/.claude/aegiscontext',
+    'rm "C:/Users/me/.claude"/aegiscontext/log/a',
+  ]) assert.equal(shellChangesProtected(c, r), "the tool's own files", c)
+  for (const c of ['cat ~/.claude/aegiscontext/log/a', 'echo $HOME > out.txt', 'ls %USERPROFILE%']) assert.equal(shellChangesProtected(c, r), undefined, c)
+  const linux: Roots = { own: ['/home/me/.claude/aegiscontext'], config: '/home/me/.claude', caseless: false, home: '/home/me', windows: false }
+  for (const c of ['rm ~/.claude/aegiscontext/put-back.json', 'echo x > $HOME/.claude/aegiscontext/a']) assert.ok(shellChangesProtected(c, linux), c)
+})
+
+test('Audit 3: with CLAUDE_CONFIG_DIR set, a command through the variable is refused', () => {
+  const r: Roots = { own: ['/cfg/aegiscontext'], config: '/cfg', caseless: false, home: '/home/me', windows: false, configVar: true }
+  assert.ok(shellChangesProtected('rm -rf $CLAUDE_CONFIG_DIR/aegiscontext', r))
+  assert.ok(shellChangesProtected('echo x > "${CLAUDE_CONFIG_DIR}/aegiscontext/put-back.json"', r))
+})
+
 // ---- .env -----------------------------------------------------------------------------------
 
 test('parseEnv reads export, quotes, comments, CRLF, a BOM and Unicode', () => {
@@ -285,6 +348,22 @@ test('applyEdit: an empty old string does nothing, one edit changes the first, r
   assert.equal(applyEdit('a', 'a', '$&$&', false), '$&$&')
 })
 
+test('applyEdit matches a CRLF file as Claude Code does: LF text matches, and the file keeps CRLF', () => {
+  assert.equal(applyEdit('a\r\nb\r\nc\r\n', 'a\nb', 'a\nX', false), 'a\r\nX\r\nc\r\n')
+  assert.equal(applyEdit('a\r\nb\r\na\r\nb\r\n', 'a\nb', 'Y', true), 'Y\r\nY\r\n')
+  assert.equal(applyEdit('a\nb\n', 'a\r\nb', 'x', false), undefined)
+})
+
+test('R-11 on a CRLF file: a two-line Edit that swaps the secret for its placeholder is blocked', () => {
+  const r = redactor()
+  const disk = `name: a\r\ntoken: ${GH}\r\nport: 1\r\n`
+  const view = r.redactText(disk, { deadline: later() }).text.split('\r\n')
+  // With put-back on, a restored Edit reaches the guard in LF form; here the old text holds the real value.
+  const after = applyEdit(disk, `name: a\ntoken: ${GH}`, `name: b\n${view[1]}`, false)
+  assert.ok(after !== undefined)
+  assert.equal(checkOverwrite(r, { path: 'c.env', disk, after, deadline: later() }).blocked, true)
+})
+
 test('the guard: a placeholder already in the file does not count as losing a secret', () => {
   const r = redactor()
   const old = place(r, GH)
@@ -299,6 +378,40 @@ test('the guard: the placeholder of a different known value of the same kind doe
   const other = place(r, GH2)
   r.redactText(`seen ${GH}`, { deadline: later() })
   assert.equal(checkOverwrite(r, { path: 'a.env', disk: `a=${GH}\n`, after: `a=${other}\n`, deadline: later() }).blocked, false)
+})
+
+/** A YAML file holding a fake private key, built from pieces, with the given line ending. */
+const keyFile = (eol: string): string => {
+  const b = ['MIIEowIBAAKCAQEA', 'x7Kq9'.repeat(12)].join('')
+  const body = [b, [...b].reverse().join(''), `Zq8${b.slice(3)}`, `AbC${b.slice(5)}==`]
+  const key = [['-----BEGIN', 'RSA PRIVATE', 'KEY-----'].join(' '), ...body, ['-----END', 'RSA PRIVATE', 'KEY-----'].join(' ')]
+  return ['name: app', 'key: |', ...key.map(l => `  ${l}`), 'port: 8080', ''].join(eol)
+}
+
+/** The file as a Read shows it: each line numbered, with an arrow or a tab after the number. */
+const asRead = (text: string, sep: string): string => text.split('\n').map((l, i) => `${String(i + 1).padStart(6)}${sep}${l}`).join('\n')
+
+/** What the model writes back after a Read: the numbers taken off again. */
+const unread = (text: string): string => text.split('\n').map(l => l.replace(/^\s*\d+[→\t]/, '')).join('\n')
+
+test('R-11: a multi-line secret seen through Read, rewritten as its placeholder, is blocked (LF and CRLF)', () => {
+  for (const eol of ['\n', '\r\n']) {
+    for (const sep of ['→', '\t']) {
+      const r = redactor()
+      const disk = keyFile(eol)
+      const seen = unread(r.redactText(asRead(disk, sep), { deadline: later() }).text)
+      assert.match(seen, /\[REDACTED:PRIVATE_KEY/)
+      const out = checkOverwrite(r, { path: 'c.yaml', disk, after: `${seen}extra: 1${eol}`, deadline: later() })
+      assert.equal(out.blocked, true, `${JSON.stringify(eol)} ${JSON.stringify(sep)}`)
+    }
+  }
+})
+
+test('R-11: the same Read-seen secret kept in place, or a known placeholder of another key, is not blocked', () => {
+  const r = redactor()
+  const disk = keyFile('\n')
+  r.redactText(asRead(disk, '→'), { deadline: later() })
+  assert.equal(checkOverwrite(r, { path: 'c.yaml', disk, after: `${disk}extra: 1\n`, deadline: later() }).blocked, false)
 })
 
 test('the guard: a rule set to warn hides nothing, so nothing is lost', () => {

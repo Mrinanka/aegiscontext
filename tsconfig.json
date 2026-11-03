@@ -1,7 +1,7 @@
 {
   // Typecheck only: Node runs the .ts files directly (type stripping), so nothing is emitted.
   // plugin/ and experiments/ hold mod code, which runs without Node and is typechecked
-  // against the tsconfig that Claude Code writes beside a loaded mod.
+  // against the tsconfig that Claude Code writes beside a loaded mod (as is the rewrite test's scratch mod).
   "compilerOptions": {
     "target": "es2023",
     "module": "nodenext",
@@ -16,5 +16,5 @@
     "types": ["node"]
   },
   "include": ["src", "tools", "tests"],
-  "exclude": ["node_modules", "plugin", "experiments"]
+  "exclude": ["node_modules", "plugin", "experiments", "tools/leak-test/fixtures/rewrite-plugin"]
 }

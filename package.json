@@ -20,6 +20,8 @@
     "measure:store": "node tools/measure/store.ts",
     "plugin:build": "node tools/plugin/build.ts",
     "plugin:typecheck": "node tools/plugin/typecheck.ts",
+    "leak-test:put-back": "node tools/leak-test/run.ts --put-back on",
+    "leak-test:put-back-off": "node tools/leak-test/run.ts --put-back off",
     "leak-test:core": "node tools/leak-test/run.ts --plugin plugin --only prompt-typed --only prompt-pasted --only read-file --only bash-output --only bash-failed --only bash-large --only mcp-result --only subagent-read --only compaction --only claude-md --only hook-context --only skill-text",
     "leak-test:backup": "node tools/leak-test/run.ts --no-plugin --backup user",
     "leak-test:backup-limits": "node tools/leak-test/run.ts --no-plugin --backup user --outside",
@@ -27,6 +29,9 @@
     "leak-test:org": "node tools/leak-test/run.ts --org --allow-managed-file",
     "leak-test:guarded": "node tools/leak-test/run.ts --guarded --allow-managed-file",
     "leak-test:guarded-hold": "node tools/leak-test/run.ts --guarded --hold --allow-managed-file",
+    "leak-test:guarded-login": "node tools/leak-test/run.ts --guarded --login team",
+    "leak-test:guarded-login-hold": "node tools/leak-test/run.ts --guarded --login team --hold",
+    "leak-test:org-observe": "node tools/leak-test/run.ts --org --observe --allow-managed-file",
     "leak-test:managed": "node tools/leak-test/run.ts --no-plugin --backup managed --safe-mode --allow-managed-file --only prompt-typed --only prompt-pasted --only read-file --only bash-output --only bash-large --only subagent-read"
   },
   "devDependencies": {

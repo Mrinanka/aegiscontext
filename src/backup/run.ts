@@ -5,11 +5,13 @@
 // lock's writes and these never meet. Every line is cleaned with the same redactor (R-17).
 
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { createChecker, type Rejection } from '../checker/index.ts'
 import { backendFor } from '../core/backends.ts'
 import { appendLine, formatLine, ROLLOVER_BYTES, type LogEntry } from '../core/log.ts'
 import { NO_ALLOW, Redactor } from '../core/session.ts'
+import type { Roots } from '../core/protect.ts'
 import { checkerOptions, compileAllow, type Settings } from '../core/settings.ts'
 import { loadList, type SecretEntry } from '../core/store.ts'
 import { decide, failureAnswer, type Answer } from './act.ts'
@@ -25,6 +27,10 @@ export type RunOptions = {
   budgetMs?: number
   /** For tests: stand in for the password store. */
   loadSecrets?: () => Promise<{ entries: SecretEntry[]; warning?: string }>
+  /** For tests: the home folder (default `os.homedir()`). */
+  home?: string
+  /** For tests: whether `CLAUDE_CONFIG_DIR` is set (default: read from the environment). */
+  configVar?: boolean
 }
 
 const BUDGET_MS = 4000
@@ -117,7 +123,17 @@ export async function runBackup(input: Record<string, unknown>, o: RunOptions): 
   const own = [dataDir]
   const landed = realpath(dataDir)
   if (landed !== undefined && landed !== dataDir) own.push(landed)
-  const roots = { own, config: o.configDir, caseless: (o.platform ?? process.platform) !== 'linux' }
+  // With the home folder, the working folder and the OS, so a path is read the way Claude Code expands it (D-098).
+  const platform = o.platform ?? process.platform
+  const roots: Roots = {
+    own,
+    config: o.configDir,
+    caseless: platform !== 'linux',
+    home: o.home ?? os.homedir(),
+    cwd,
+    windows: platform === 'win32',
+    configVar: o.configVar ?? Boolean(process.env.CLAUDE_CONFIG_DIR),
+  }
 
   let answer: Answer
   try {

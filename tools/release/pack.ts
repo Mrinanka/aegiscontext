@@ -3,8 +3,8 @@
 // Makes the release archives of the committed tree: aegiscontext-<tag>.tar.gz and .zip, by `git archive`, and
 // SHA256SUMS beside them. It refuses a tree that is not clean (a file changed, new or staged), a tag that is not
 // v<version> or v<version>-rc.N, a tag whose version is not the one in package.json, and an output folder that
-// already holds archives. It writes nothing when it refuses. Nothing is signed (spec §23, D-019) and nothing is
-// published: the maintainer tags, and the release workflow makes a draft release.
+// already holds archives. It writes nothing when it refuses. It signs nothing and publishes nothing: the maintainer
+// signs the tag (spec §19, D-094), and the release workflow makes a draft release.
 
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'

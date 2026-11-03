@@ -97,7 +97,7 @@ test('a hook that fails: allow lets the row through with a warning', async ($, o
     throw new Error('boom')
   })
   await $.session.append(toolResult(`x ${FAKE}`))
-  expect(w.ui.some(l => l.includes('aegiscontext'))).toBe(true)
+  expect(w.ui.some(l => l.includes('reached the model unchecked'))).toBe(true)
   expect(JSON.stringify(w.session.appended()).includes('withheld')).toBe(false)
 })
 

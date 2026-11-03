@@ -1,0 +1,7 @@
+{
+  "name": "rewrite-test-plugin",
+  "version": "0.0.0",
+  "description": "A scratch mod for the rewrite test (step 8, spike S7): it rewrites a Write or Edit input, and can hide the rewritten word again. It holds no secret, only harmless words.",
+  "author": { "name": "Mrinanka Dhar" },
+  "license": "Apache-2.0"
+}

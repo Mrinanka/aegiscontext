@@ -2,11 +2,20 @@
 // so rewriting it can swap a real secret for its placeholder and lose the secret. A real value is
 // never put back; the change is refused instead.
 import { findPlaceholders } from './placeholder.js';
-/** The file's text after an Edit, or undefined when `old` isn't in it (the Edit then fails by itself). */
+/**
+ * The file's text after an Edit, or undefined when `old` isn't in it (the Edit then fails by itself). Claude Code
+ * matches a CRLF file as LF and keeps CRLF when it saves (2.1.316, measured), so that is tried after an exact match.
+ */
 export function applyEdit(disk, old, next, all) {
-    if (old === '' || !disk.includes(old))
+    if (old === '')
         return undefined;
-    return all ? disk.split(old).join(next) : disk.replace(old, () => next);
+    const swap = (text) => (all ? text.split(old).join(next) : text.replace(old, () => next));
+    if (disk.includes(old))
+        return swap(disk);
+    if (!disk.includes('\r\n'))
+        return undefined;
+    const lf = disk.replace(/\r\n/g, '\n');
+    return lf.includes(old) ? swap(lf).replace(/\r?\n/g, '\r\n') : undefined;
 }
 const parts = (text) => ({
     label: /^\[REDACTED:([A-Z0-9_]+)/.exec(text)[1],
@@ -26,8 +35,14 @@ export function placeholdersIn(text) {
     return out;
 }
 /**
+ * A value as the file holds it, whatever view it was seen through: a Read numbers each line, so a multi-line value
+ * seen there holds `\n     6→` (or a tab) where the file has `\n`. Line endings are left out on both sides.
+ */
+const asOnDisk = (value) => value.replace(/\r/g, '').replace(/\n[ \t]*\d+[→\t]/g, '\n');
+/**
  * Blocked when a secret in the file on disk is gone from the new text and its placeholder is there.
  * A placeholder this session has no value for may come from an earlier session: same kind counts.
+ * A placeholder it knows counts when its value is the lost one seen through a Read (spec §10, R-11).
  */
 export function checkOverwrite(r, c) {
     const scan = r.redactText(c.disk, { file: c.path, deadline: c.deadline });
@@ -38,18 +53,27 @@ export function checkOverwrite(r, c) {
     for (const h of secrets) {
         const value = r.valueOfTag(h.tag);
         if (value === undefined || !c.after.includes(value))
-            lost.set(h.tag, h.label);
+            lost.set(h.tag, { label: h.label, value });
     }
-    const labels = new Set(lost.values());
+    const labels = new Set([...lost.values()].map(l => l.label));
     const tags = new Set();
     for (const p of placeholdersIn(c.after)) {
-        if (lost.has(p.tag))
+        if (lost.has(p.tag)) {
             tags.add(p.tag);
-        else if (r.valueOfTag(p.tag) === undefined) {
+            continue;
+        }
+        const known = r.valueOfTag(p.tag);
+        if (known === undefined) {
             if (labels.has(p.label) && !c.disk.includes(`#${p.tag}]`))
-                for (const [tag, label] of lost)
-                    if (label === p.label)
+                for (const [tag, l] of lost)
+                    if (l.label === p.label)
                         tags.add(tag);
+        }
+        else if (known.includes('\n')) {
+            const seen = asOnDisk(known);
+            for (const [tag, l] of lost)
+                if (l.value !== undefined && l.value.includes('\n') && asOnDisk(l.value) === seen)
+                    tags.add(tag);
         }
     }
     return { blocked: tags.size > 0, tags: [...tags], complete: scan.complete };

@@ -71,9 +71,12 @@ export async function failureMode($: EngineInterface): Promise<'allow' | 'hold'>
   }
 }
 
-/** The last good settings keep the user's rules but not their `allow` values: nothing a person marked harmless is stored. */
+/**
+ * The last good settings keep the user's rules but not their `allow` values: nothing a person marked harmless is stored.
+ * Nor a project's put_back: the store is shared by every project (spec §10).
+ */
 function forStore(s: Settings): Settings {
-  return { ...s, allow: s.allow.filter(a => typeof a !== 'string') }
+  return { ...s, allow: s.allow.filter(a => typeof a !== 'string'), put_back: { managedOff: s.put_back.managedOff } }
 }
 
 async function readCatches($: EngineInterface): Promise<CatchEntry[]> {

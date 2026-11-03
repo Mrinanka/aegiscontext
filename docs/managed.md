@@ -11,7 +11,7 @@ Two reasons:
 
 ## What you need on each machine
 
-1. **A marketplace folder** holding the release: verify a release archive (`aegiscontext-<tag>.tar.gz` or `.zip`) against `SHA256SUMS`, then unpack it into a folder of your choice, for example `/opt` (macOS, Linux) or `C:\Program Files\AegisContext` (Windows). The archive holds one folder, `aegiscontext-<tag>` (for example `aegiscontext-v0.1.0-rc.1`), and **that folder is the marketplace folder**: it holds `.claude-plugin/marketplace.json` and `plugin/`. A path one level off loads no plugin and shows no error on screen, so run the check below on one machine first.
+1. **A marketplace folder** holding the release: check the signed tag ([verify.md](verify.md#check-a-release)), verify a release archive (`aegiscontext-<tag>.tar.gz` or `.zip`) against `SHA256SUMS`, then unpack it into a folder of your choice, for example `/opt` (macOS, Linux) or `C:\Program Files\AegisContext` (Windows). The archive holds one folder, `aegiscontext-<tag>` (for example `aegiscontext-v0.1.0-rc.2`), and **that folder is the marketplace folder**: it holds `.claude-plugin/marketplace.json` and `plugin/`. A path one level off loads no plugin and shows no error on screen, so run the check below on one machine first.
 2. **Managed settings** that name the folder, enable the plugin, and list it first in `prependPlugins`: [snippets/managed-plugin.json](snippets/managed-plugin.json), with `<MARKETPLACE-FOLDER>` replaced by the full path of that folder:
 
    ```json
@@ -37,6 +37,15 @@ Put these in the managed settings location for the system:
 | Windows | `C:\Program Files\ClaudeCode\managed-settings.json` |
 
 or deliver them by MDM (Jamf, Intune) or from the Claude server. For an offline site the release archive is the whole thing. An internal git mirror of the repo does **not** reach the `prepend` tier; it serves the Personal install only.
+
+## Put-back
+
+`put_back` is off unless a developer turns it on ([personal.md](personal.md#put-secrets-back-optional-off-by-default)). Put-back lets Claude's file writes carry a real secret into a file that already holds it, and a save can erase a secret it cannot restore, so an organization may want it forbidden.
+
+- `"put_back": "off"` under the `aegisContext` key binds with no `locked` list: nobody's own choice and no project's setting turns it on. `"locked": ["put_back"]` has the same effect.
+- A managed `"put_back": "on"` does nothing and shows a notice. An organization can forbid put-back; it cannot switch it on for people.
+- Without either, a project's `.claude/settings.json` can ask for it, and it then turns on for any developer who has made no choice of their own, with a notice that names the repo. That is the one exception to "a project can only make things stricter". Forbid it if you open repos you do not trust.
+- The backup lock never restores, and observe mode restores nothing.
 
 ## Trial it
 

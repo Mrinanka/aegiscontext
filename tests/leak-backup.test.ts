@@ -69,6 +69,10 @@ test('the sets of doors: inside and outside the limits never overlap, and every 
   assert.deepEqual(BACKUP_INSIDE.filter(n => BACKUP_OUTSIDE.includes(n)), [])
 })
 
+test('skill text is outside the backup lock\'s limits, so the kit proves it leaks there (scratch run 2026-11-02: 7 of 7)', () => {
+  assert.ok(BACKUP_OUTSIDE.includes('skill-text'))
+})
+
 test('a prompt the backup lock stops counts as held, but only when the kit is testing the backup lock', async () => {
   const withBackup = await runKit(opts('held-backup', { backup: { main: MAIN, where: 'user' } }))
   assert.equal(withBackup.verdict, 'pass')

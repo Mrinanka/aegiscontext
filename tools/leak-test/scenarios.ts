@@ -46,6 +46,12 @@ export type Scenario = {
   heldBackup?: RegExp
   /** Saves the door's values in the real OS store first (needs --allow-real-store, except on Windows). */
   seedStore?: string
+  /** Tools this scenario's runs may use besides ALLOWED_TOOLS (the put-back doors: Write and Edit). */
+  tools?: string[]
+  /** What the folder holds when the runs are done: file name to exact text, by the put-back choice the run was made with. */
+  expectFiles?: (c: Ctx, putBack: 'on' | 'off') => Record<string, string>
+  /** Files that must exist when the runs are done and hold no fake in any written form. */
+  cleanFiles?: string[]
   runs: Run[]
 }
 
@@ -199,7 +205,7 @@ export const SCENARIOS: Scenario[] = [
 // The backup lock (spec §5.2) covers part of what the main lock does. Inside its limits a door must stay clean;
 // outside them the kit runs the door expecting every fake to be seen, so the limits list is proven, not claimed.
 export const BACKUP_INSIDE = ['prompt-typed', 'prompt-pasted', 'read-file', 'bash-output', 'bash-large', 'mcp-result', 'subagent-read']
-export const BACKUP_OUTSIDE = ['mention-file', 'bash-failed', 'compaction-summary', 'resume', 'claude-md', 'hook-context']
+export const BACKUP_OUTSIDE = ['mention-file', 'bash-failed', 'compaction-summary', 'resume', 'claude-md', 'hook-context', 'skill-text']
 
 /** The summary door alone: the backup lock cannot clean a compaction summary, and the first prompt carries no fake for it to block. */
 export const BACKUP_ONLY: Scenario[] = [
@@ -233,6 +239,100 @@ export const GUARDED_ONLY: Scenario[] = [
       { prompt: () => '/compact', resume: true, script: c => steps([], { summary: `Summary of the chat:\n${c.block('summary')}` }) },
       { prompt: () => 'Reply with ok.', resume: true, script: () => steps([]) },
     ],
+  },
+]
+
+/**
+ * The file as the model saw it, line by line. A Read result is numbered, one `N→text` line per line (a tab in some
+ * versions); anything else in the message, such as a reminder, is not a file line.
+ */
+export function seenLines(r: Pick<ParsedRequest, 'lastUserText'>): string[] {
+  return r.lastUserText.split(/\r?\n/).flatMap(line => {
+    const m = /^\s*\d+[→\t](.*)$/.exec(line)
+    return m ? [m[1] as string] : []
+  })
+}
+
+// ---- put-back (spec §10, D-096) ----------------------------------------------------------------
+// The model reads a file, then writes it back (or edits it) using the placeholders it was shown. With put-back on, the
+// file on disk must come out whole; with it off, the guard refuses and the file stays as it was. Either way no request
+// may hold a fake. The mock sends only placeholders (a fake never appears in a tool call it makes).
+
+const CFG = 'app.cfg'
+const original = (c: Ctx): string => `${c.block('putback')}\n`
+const original0 = (c: Ctx): string[] => original(c).split('\n').slice(0, -1)
+const write = (c: Ctx, file: string, content: (r: ParsedRequest) => string): Step => r => tool('Write', { file_path: path.join(c.dir, file), content: content(r) })
+/** The lines of the file itself: a Read result also numbers the empty line after the last newline. */
+const fileLines = (r: ParsedRequest): string[] => seenLines(r).filter((_, i, all) => all.slice(i).some(l => l !== ''))
+const touched = (r: ParsedRequest): string => `${[...fileLines(r), '# touched'].join('\n')}\n`
+
+/** The file after the model's edit of line 2 (the first fake), as put-back on leaves it. */
+const editedLine = (c: Ctx): string => `${original0(c).map((l, i) => (i === 1 ? `${l} # edited` : l)).join('\n')}\n`
+
+export const PUT_BACK_SCENARIOS: Scenario[] = [
+  {
+    name: 'putback-write',
+    doors: ['putback'],
+    tools: ['Write'],
+    files: c => ({ [CFG]: original(c) }),
+    expectFiles: (c, putBack) => ({ [CFG]: putBack === 'on' ? `${original0(c).join('\n')}\n# touched\n` : original(c) }),
+    runs: [
+      { prompt: () => `Read ${CFG}, then write it back with a note at the end.`, script: c => steps([read(c, CFG), write(c, CFG, touched)]) },
+      { prompt: () => '/compact', resume: true, script: () => steps([], { summary: 'Summary of the chat: the config was rewritten.' }) },
+      { prompt: () => 'Reply with ok.', resume: true, script: () => steps([]) },
+    ],
+  },
+  {
+    name: 'putback-edit',
+    doors: ['putback'],
+    tools: ['Edit'],
+    files: c => ({ [CFG]: original(c) }),
+    expectFiles: (c, putBack) => ({ [CFG]: putBack === 'on' ? editedLine(c) : original(c) }),
+    runs: [
+      {
+        prompt: () => `Read ${CFG}, then edit its second line.`,
+        script: c => steps([read(c, CFG), r => tool('Edit', { file_path: path.join(c.dir, CFG), old_string: seenLines(r)[1] ?? '', new_string: `${seenLines(r)[1] ?? ''} # edited` })]),
+      },
+      { prompt: () => 'Reply with ok.', resume: true, script: () => steps([]) },
+    ],
+  },
+  {
+    name: 'putback-failed-edit',
+    doors: ['putback'],
+    tools: ['Edit'],
+    files: c => ({ [CFG]: original(c) }),
+    expectFiles: c => ({ [CFG]: original(c) }),
+    runs: [
+      {
+        prompt: () => `Read ${CFG}, then edit a line that is not there.`,
+        // The line is wrong, so the Edit fails. The error echoes the input it was given: it must be the placeholder.
+        script: c => steps([read(c, CFG), r => tool('Edit', { file_path: path.join(c.dir, CFG), old_string: `no such line: ${seenLines(r)[1] ?? ''}`, new_string: 'x' })]),
+      },
+      { prompt: () => 'Reply with ok.', resume: true, script: () => steps([]) },
+    ],
+  },
+  {
+    name: 'putback-new-file',
+    doors: ['putback'],
+    tools: ['Write'],
+    files: c => ({ [CFG]: original(c) }),
+    expectFiles: c => ({ [CFG]: original(c) }),
+    cleanFiles: ['new.cfg'],
+    runs: [{ prompt: () => `Read ${CFG}, then copy it to new.cfg.`, script: c => steps([read(c, CFG), write(c, 'new.cfg', r => `${fileLines(r).join('\n')}\n`)]) }],
+  },
+  {
+    name: 'putback-subagent',
+    doors: ['putback'],
+    tools: ['Write'],
+    files: c => ({ [CFG]: original(c) }),
+    expectFiles: (c, putBack) => ({ [CFG]: putBack === 'on' ? `${original0(c).join('\n')}\n# touched\n` : original(c) }),
+    runs: [{
+      prompt: () => `Ask a helper to rewrite ${CFG}.`,
+      script: c => steps(
+        [r => tool(subagentTool(r), { description: 'rewrite config', prompt: `SUBAGENT-TASK: read ${CFG}, then write it back with a note at the end`, subagent_type: 'general-purpose' })],
+        { sub: [read(c, CFG), write(c, CFG, touched)] },
+      ),
+    }],
   },
 ]
 

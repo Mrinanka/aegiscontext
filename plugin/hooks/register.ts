@@ -6,7 +6,7 @@
 // the top of a file, so the hooks call those and keep `next` for themselves.
 
 import type { Register, TurnStepChunk, TurnStepResult } from 'claude-code'
-import { cleanAppend, cleanAttachment, cleanContext, cleanSubmit, failedAppend, failedAttachment, failedCompose, failedContext, failedGate, failedLifecycle, failedSubmit, PLACEHOLDER_NOTE, shutDown, startUp, stillRunning } from './handlers.ts'
+import { cleanAppend, cleanAttachment, cleanContext, cleanSubmit, failedAppend, failedAttachment, failedCompose, failedContext, failedGate, failedLifecycle, failedSubmit, PLACEHOLDER_NOTE, putBackSections, shutDown, startUp, stillRunning } from './handlers.ts'
 import { NOTE_ID } from './lib/core/note.ts'
 import { DOCTOR, doctor, isOwnCommandCall, isPerson, redactCommand } from './commands.ts'
 import { checkMention, failedMention } from './mention.ts'
@@ -14,7 +14,7 @@ import { failureMode } from './runtime.ts'
 import { resumeBlock, safeResumeBlock } from './resume.ts'
 import { afterTool, askReason, beforeTool } from './tools.ts'
 import { drawBanner } from './banner.tsx'
-import { drawAdd, drawLearn } from './panes.tsx'
+import { drawAdd, drawLearn, drawRemove } from './panes.tsx'
 import { checkGuard, markComposeSeen, noteOrigin } from './guard.ts'
 
 /** An answer in place of a request. The engine shows and records what a step streams, never what it returns. */
@@ -69,7 +69,7 @@ export const register: Register = on => {
   on('prompt.compose', async ($, e, next) => {
     await markComposeSeen($)
     const out = await next(e)
-    return { sections: [...out.sections, { id: NOTE_ID, text: PLACEHOLDER_NOTE, scope: 'session' as const }] }
+    return { sections: [...out.sections, { id: NOTE_ID, text: PLACEHOLDER_NOTE, scope: 'session' as const }, ...(await putBackSections($))] }
   }).catch(async ($, e, next) => {
     await failedCompose($, next.error.kind)
     return next(e)
@@ -103,10 +103,12 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     const input = e as unknown as Record<string, unknown>
     if (isOwnCommandCall(String(e.tool), input)) return { deny: 'Only the user can run this command.' }
-    const deny = await beforeTool($, String(e.tool), input)
-    if (deny) return { deny: `aegiscontext: ${deny}` }
-    const ran = await next(e)
-    if (ran.deny === undefined && ran.isError !== true) await afterTool($, String(e.tool), input).catch(() => undefined)
+    const before = await beforeTool($, String(e.tool), input)
+    if ('deny' in before) return { deny: `aegiscontext: ${before.deny}` }
+    // Put-back may have restored a value into the input. What is saved is what the notice reads.
+    const sent = before.changes ? { ...input, ...before.changes } : input
+    const ran = await next(before.changes ? ({ ...e, ...before.changes } as typeof e) : e)
+    if (ran.deny === undefined && ran.isError !== true) await afterTool($, String(e.tool), sent).catch(() => undefined)
     return ran
   }).catch(async ($, e, next) => {
     if (next.called) return next(e)
@@ -154,6 +156,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: 'aegiscontext-add' }, ($, e) => drawAdd($, e))
   on('ui.render', { component: 'Pane', requestId: 'aegiscontext-learn' }, ($, e) => drawLearn($, e))
+  on('ui.render', { component: 'Pane', requestId: 'aegiscontext-remove' }, ($, e) => drawRemove($, e))
   on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => drawBanner($, e, next))
 
   on('session.start', async ($, e, next) => {

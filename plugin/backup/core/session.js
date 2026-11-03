@@ -159,6 +159,21 @@ export class Redactor {
                 return value;
         return undefined;
     }
+    /**
+     * Makes sure a tagged value stays hidden after put-back has written it into a file (spec §10, D-096). True for a
+     * registered value or one already caught. Otherwise the value becomes a catch, past D-071's filter, because once it
+     * is in the file nothing but the catch list would hide a bare copy of it later. False when it can't be remembered:
+     * over 8,192 characters, under 6, or the catch list is full. Then the caller must not restore it.
+     */
+    keepHidden(tag, label = 'secret') {
+        const value = this.valueOfTag(tag);
+        if (value === undefined)
+            return false;
+        if (this.registered.some(r => r.value === value) || this.catches.has(value))
+            return true;
+        this.addCatch(value, label, 'put-back', false, 'hide');
+        return this.catches.has(value);
+    }
     /** Marks a tagged value harmless for this session (`/redact allow`). False for a tag this session never made. */
     allowTag(tag) {
         const value = this.valueOfTag(tag);
@@ -331,10 +346,10 @@ export class Redactor {
         }
         // 6 and 7.
         const placeholders = findPlaceholders(text);
-        const { text: out, hits, blocked } = this.apply(text, spans, placeholders);
+        const { text: out, hits, blocked } = this.apply(text, spans, placeholders, o.sources === true);
         return result(out, hits, complete, blocked);
     }
-    apply(text, spans, placeholders) {
+    apply(text, spans, placeholders, sources) {
         const hits = [];
         const seen = new Set();
         const replace = [];
@@ -402,7 +417,7 @@ export class Redactor {
             cursor = end;
             if (action === 'block')
                 blocked = true;
-            hits.push({ ruleId: primary.ruleId, label: primary.label, tag, action, kind: primary.kind, ...(hint === undefined ? {} : { hint }) });
+            hits.push({ ruleId: primary.ruleId, label: primary.label, tag, action, kind: primary.kind, ...(hint === undefined ? {} : { hint }), ...(sources ? { source: text.slice(start, end), at: start } : {}) });
             i = j;
         }
         out += text.slice(cursor);

@@ -23,6 +23,18 @@ This is a community project with no support contract. Reports are read on a best
 
 The limits in `docs/spec.md` section 22 are known and documented, for example a secret with no known shape, content sent before the tool was installed, and Claude Code's own disk records. They are not vulnerabilities, but a better way to close one is welcome as an ordinary issue.
 
+## Release signing
+
+Release tags from `v0.1.0-rc.2` on are signed with the maintainer's GPG key; `v0.1.0-rc.1` is not signed. How to check one: [docs/verify.md](docs/verify.md#check-a-release).
+
+The signing key (Ed25519, `Mrinanka <mrinanka.dhar@gmail.com>`, made on 2026-11-03, expires on 2028-11-02):
+
+```
+3EB709B99205963468513F06CBD485A98A52F738
+```
+
+`git tag -v` names it by this fingerprint, or by its last 16 characters (`CBD485A98A52F738`). Its public key is at <https://github.com/Mrinanka.gpg>. If the key is ever replaced or revoked, this section says so, and from which release on.
+
 ## Supported versions
 
 Only the latest release. Fixes land on `develop` and ship in the next release.
