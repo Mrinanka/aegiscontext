@@ -290,6 +290,8 @@ test('a registered value is 6 to 8,192 characters', () => {
 test('R-01: an untested version gives one line; a tested one none', () => {
   assert.equal(isTested('2.1.316'), true)
   assert.equal(versionWarning('2.1.316'), undefined)
+  assert.equal(isTested('2.1.317'), true)
+  assert.equal(versionWarning('2.1.317'), undefined)
   const w = versionWarning('9.9.9') as string
   assert.match(w, /9\.9\.9/)
   assert.ok(!w.includes('\n'))

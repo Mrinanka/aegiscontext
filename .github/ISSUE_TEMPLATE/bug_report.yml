@@ -36,6 +36,6 @@ body:
     id: setup
     attributes:
       label: Claude Code version, system, and where you run it
-      description: For example "2.1.316, Windows 11, terminal" or "VS Code extension".
+      description: For example "2.1.317, Windows 11, terminal" or "VS Code extension".
     validations:
       required: true

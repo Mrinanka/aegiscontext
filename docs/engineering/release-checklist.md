@@ -29,7 +29,7 @@ Not done by the tool; they need the maintainer, a real key, or a real app.
 - [ ] Two weeks of daily use by the maintainer.
 - [ ] Hand checks in the interactive terminal: `/resume` at `prompt.submit`, the `/redact add`, `learn` and `remove` panes, the `outbound: ask` dialog, the observe banner, whether `/redact` survives `/clear`.
 - [ ] Hand checks for put-back, which a `-p` run cannot show: in the terminal, a Write or Edit with put-back on shows the permission dialog with the real value (and only you see it); a project whose `.claude/settings.json` sets `put_back` to `on` shows the notice naming the repo once, even with `notices: off`; `/redact put-back off --here` stops it for that folder.
-- [ ] Hand checks in **VS Code** (the extension's own Claude Code version) and the **desktop app's Code tab** (record its Claude Code version). The probe log of the desktop app had no start line, so its version was never recorded.
+- [x] Hand checks in **VS Code** (the extension's own Claude Code version) and the **desktop app's Code tab** (record its Claude Code version): done by the maintainer on 2.1.317 (D-102).
 - [ ] The optional **real-API run**: the same doors against the real API, with a real key and network. It stays out of the kit.
 - [ ] A trademark register search for "AegisContext" (USPTO, EUIPO). Only npm, GitHub and the web were searched.
 - [ ] Reports to Anthropic for the items in spec section 22 ("Claude Code's own disk records") and the `claude plugin test` `HookStream.result` behaviour.
