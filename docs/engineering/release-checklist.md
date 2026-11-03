@@ -4,22 +4,20 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 
 ## Before a release candidate (`v0.1.0-rc.<n>`)
 
-`v0.1.0-rc.1` went through this list. These are for `v0.1.0-rc.2`, published on 2026-11-03; the weekly line stays open until its first scheduled run. A later release candidate starts the list again.
+`v0.1.0-rc.1` and `v0.1.0-rc.2` (published 2026-11-03) went through this list. These are for `v0.1.0-rc.3`: Claude Code 2.1.317 tested and pinned (D-102), and the untested-version warning shown on the first 2 sessions per version (D-103). A later release candidate starts the list again.
 
 If a macOS job is cancelled with "The job was not acquired by Runner of type hosted", GitHub had no macOS runner free. Use "Re-run failed jobs" on that run; nothing in the code failed.
 
-- [x] Step 8 is merged and its audits are done (D-095).
-- [x] `develop` is green in CI on the three systems, including `leak-test:org`, `leak-test:org-observe`, `leak-test:guarded`, `leak-test:guarded-hold` and `leak-test:guarded-login`.
-- [x] `docs/engineering/spec.md` section 22 lists the doors `leak-test:guarded` measured (`GUARDED_OPEN` in `tools/leak-test/org.ts`).
-- [ ] The weekly run (`.github/workflows/weekly.yml`) has passed at least once on `step-8` (its `push` trigger) and, once `develop` is merged into `release`, runs on its schedule. `schedule` and `workflow_dispatch` only work for the default branch, and GitHub switches a scheduled workflow off after 60 days with no repository activity: re-enable it from the Actions tab if it was.
-- [x] `leak-test:put-back` and `leak-test:put-back-off` are green in CI on the three systems.
-- [x] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts`, `CHANGELOG.md`.
-- [x] `docs/tested-versions.md` and `docs/scores.md` are current for this release.
-- [x] Private vulnerability reporting is on (`gh api repos/Mrinanka/aegiscontext/private-vulnerability-reporting` says `enabled`): `SECURITY.md`, `CODE_OF_CONDUCT.md` and the issue template link to it.
-- [x] `npm run release:pack` on a clean tree (see below).
-- [x] The merge of `develop` into `release`; `release` is the repository's default branch.
-- [x] A GPG signing key exists, its public key is on the GitHub profile, and its fingerprint is in `SECURITY.md` ("Signing a tag", below). The fingerprint change goes in before the tag.
-- [x] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v <tag>` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
+- [x] PR #17 is green in CI on the three systems on the new pin, 2.1.317 (all 10 checks, 2026-11-04).
+- [ ] PR #17 is merged into `develop`, and `develop` is green in CI after the merge.
+- [ ] The weekly run (`.github/workflows/weekly.yml`) runs on its schedule from `release`. `schedule` and `workflow_dispatch` only work for the default branch, and GitHub switches a scheduled workflow off after 60 days with no repository activity: re-enable it from the Actions tab if it was.
+- [x] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts` (all `0.1.0`), and `CHANGELOG.md` has a `0.1.0-rc.3` section.
+- [x] `docs/tested-versions.md` and `docs/scores.md` are current for this release (`npm run measure` re-run 2026-11-04; only the two speed rows moved).
+- [x] Private vulnerability reporting is on (`gh api repos/Mrinanka/aegiscontext/private-vulnerability-reporting` says `enabled`, checked 2026-11-04).
+- [ ] The merge of `develop` into `release` (a PR; if its run cancels `develop`'s merge run, rerun the cancelled run once the PR run passes, see progress "Known issues").
+- [ ] `npm run release:pack -- v0.1.0-rc.3` on a clean tree (see below).
+- [ ] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v v0.1.0-rc.3` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
+- [ ] The draft release is reviewed and published by the maintainer.
 
 ## Before `v0.1.0`
 
