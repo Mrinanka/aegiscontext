@@ -1,6 +1,7 @@
 // The tool protecting itself (spec §17, D-055): Claude's tool calls can't change its files, or the
 // settings that would switch it off. The shell check reads text, so it is best effort: a command that
 // hides what it does gets past it (spec §22).
+import { applyEdit } from './guard.js';
 /** `/c/...`, `/cygdrive/c/...` or `/mnt/c/...` as the Windows path it names, or nothing. */
 function driveForm(path) {
     const m = /^\/(?:cygdrive\/|mnt\/)?([A-Za-z])(\/.*)?$/.exec(path);
@@ -80,6 +81,22 @@ function parse(text) {
     }
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const str = (v) => (typeof v === 'string' ? v : '');
+/**
+ * The settings file a Write or Edit would leave, or nothing when it can't be worked out: an Edit whose text is not in
+ * the file as written (curly quotes Claude Code may match, a placeholder put-back would restore), or a NotebookEdit.
+ * Both locks refuse a settings change it can't work out (D-098).
+ */
+export function settingsAfter(tool, before, input) {
+    if (tool === 'Write')
+        return str(input.content);
+    if (tool !== 'Edit')
+        return undefined;
+    // An empty old_string writes new_string as the file.
+    if (str(input.old_string) === '')
+        return str(input.new_string);
+    return applyEdit(before, str(input.old_string), str(input.new_string), input.replace_all === true);
+}
 /** The setting a change would alter, if it is one that matters. */
 export function blockedSettingsChange(before, after) {
     const old = parse(before) ?? {};

@@ -2,6 +2,8 @@
 // settings that would switch it off. The shell check reads text, so it is best effort: a command that
 // hides what it does gets past it (spec §22).
 
+import { applyEdit } from './guard.ts'
+
 export type Roots = {
   /** The data folder and the plugin folder. */
   own: readonly string[]
@@ -97,6 +99,21 @@ function parse(text: string): Record<string, unknown> | undefined {
 }
 
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b)
+
+const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+
+/**
+ * The settings file a Write or Edit would leave, or nothing when it can't be worked out: an Edit whose text is not in
+ * the file as written (curly quotes Claude Code may match, a placeholder put-back would restore), or a NotebookEdit.
+ * Both locks refuse a settings change it can't work out (D-098).
+ */
+export function settingsAfter(tool: string, before: string, input: Record<string, unknown>): string | undefined {
+  if (tool === 'Write') return str(input.content)
+  if (tool !== 'Edit') return undefined
+  // An empty old_string writes new_string as the file.
+  if (str(input.old_string) === '') return str(input.new_string)
+  return applyEdit(before, str(input.old_string), str(input.new_string), input.replace_all === true)
+}
 
 /** The setting a change would alter, if it is one that matters. */
 export function blockedSettingsChange(before: string, after: string): string | undefined {

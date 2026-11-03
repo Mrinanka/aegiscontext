@@ -6,7 +6,7 @@ import { osOf } from './backends.ts'
 import { now } from './lib/core/decoder.ts'
 import { applyEdit, checkOverwrite, placeholdersIn } from './lib/core/guard.ts'
 import { isChecked, outboundText, outboundVerdict } from './lib/core/outbound.ts'
-import { blockedSettingsChange, expandPath, isProtected, isSettingsFile, shellChangesProtected, type Roots } from './lib/core/protect.ts'
+import { blockedSettingsChange, expandPath, isProtected, isSettingsFile, settingsAfter, shellChangesProtected, type Expand, type Roots } from './lib/core/protect.ts'
 import { restoreInput } from './lib/core/putback.ts'
 import type { Hit } from './lib/core/session.ts'
 import { writeLog } from './log-file.ts'
@@ -42,21 +42,43 @@ async function landing($: EngineInterface, path: string): Promise<string> {
   }
 }
 
+/** What a path is expanded with, as Claude Code does it: the home folder, the working folder, and the OS. */
+async function expandOf($: EngineInterface): Promise<{ home?: string; cwd: string; windows: boolean; os: string }> {
+  const os = await osOf($)
+  const home = (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME'))
+  return { ...(home ? { home } : {}), cwd: await $.session.cwd(), windows: os === 'windows', os }
+}
+
+const expandWith = (path: string, x: { home?: string; cwd: string; windows: boolean }): string => {
+  const t = path.trim()
+  // With no home folder known, a `~` path can't be read where Claude Code will write it: the check has failed (R-12).
+  if (x.home === undefined && (t === '~' || t.startsWith('~/'))) throw new Error('no home folder to read a ~ path from')
+  return expandPath(path, { home: x.home ?? '~', cwd: x.cwd, windows: x.windows } satisfies Expand)
+}
+
+/**
+ * The file a writing tool names, read the way Claude Code expands it (D-098), or nothing for any other tool. The
+ * input keeps the path as Claude wrote it; only this plugin's own reads use this one.
+ */
+async function filePath($: EngineInterface, tool: string, e: Input): Promise<string | undefined> {
+  const given = pathOf(tool, e)
+  return given ? expandWith(given, await expandOf($)) : undefined
+}
+
 /**
  * Each root in both spellings, because a path's landing has its links followed and the root may hold one. With the
  * home folder and the working folder, so a path is read the way Claude Code expands it (spec §17).
  */
 export async function rootsOf($: EngineInterface): Promise<Roots> {
-  const os = await osOf($)
+  const x = await expandOf($)
   const own = [await dataDir($), $.plugin.root]
-  const home = (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME'))
   return {
     own: [...own, ...(await Promise.all(own.map(r => landing($, r))))],
     config: await configDir($),
-    caseless: os !== 'linux',
-    ...(home ? { home } : {}),
-    cwd: await $.session.cwd(),
-    windows: os === 'windows',
+    caseless: x.os !== 'linux',
+    ...(x.home ? { home: x.home } : {}),
+    cwd: x.cwd,
+    windows: x.windows,
     configVar: Boolean(await $.env.get('CLAUDE_CONFIG_DIR')),
   }
 }
@@ -76,18 +98,6 @@ const named = (hits: readonly Hit[]): string => [...new Set(hits.map(h => `${h.l
 const UNCHECKED_SETTINGS = "aegiscontext could not check that change to Claude Code's settings, so it was stopped. Change only the exact text in the file, or ask the user to make the change"
 
 /**
- * The file a settings change would leave, or nothing when it can't be worked out: an Edit whose text is not in the
- * file as written (curly quotes Claude Code may match, a placeholder put-back would restore), or a NotebookEdit.
- */
-function settingsAfter(tool: string, before: string, e: Input): string | undefined {
-  if (tool === 'Write') return text(e.content)
-  if (tool !== 'Edit') return undefined
-  // An empty old_string writes new_string as the file.
-  if (text(e.old_string) === '') return text(e.new_string)
-  return applyEdit(before, text(e.old_string), text(e.new_string), e.replace_all === true)
-}
-
-/**
  * Self-protection stays on in observe mode (D-058): it is no detection, and it keeps a trial honest. A path is read as
  * Claude Code expands it (Audit 3). A check that fails refuses: self-protection never fails open.
  */
@@ -101,7 +111,7 @@ async function protect($: EngineInterface, tool: string, e: Input): Promise<stri
       const what = shellChangesProtected(text(e.command), roots)
       return what ? `that command would change ${what}. Only you can do that` : undefined
     }
-    const path = expandPath(given as string, { home: roots.home ?? '~', cwd: roots.cwd ?? '', windows: roots.windows === true })
+    const path = expandWith(given as string, { ...(roots.home ? { home: roots.home } : {}), cwd: roots.cwd ?? '', windows: roots.windows === true })
     const real = await landing($, path)
     if (isProtected(path, roots) || isProtected(real, roots)) return "that file belongs to aegiscontext, and Claude can't change it"
     if (!isSettingsFile(path, roots) && !isSettingsFile(real, { ...roots, config: await landing($, roots.config) })) return undefined
@@ -142,7 +152,7 @@ const shortName = (name: string): string => name.slice(Math.max(name.lastIndexOf
  * Put-back (spec §10, D-096): the changes that put a hidden value back into a Write or Edit input, only where the
  * file on disk already holds it. Nothing is changed when it is off, for any other tool, or when nothing can be restored.
  */
-async function restore($: EngineInterface, rt: Runtime, tool: string, e: Input, deadline: number): Promise<{ changes?: Input; on: boolean }> {
+async function restore($: EngineInterface, rt: Runtime, tool: string, e: Input, path: string | undefined, deadline: number): Promise<{ changes?: Input; on: boolean }> {
   if (tool !== 'Write' && tool !== 'Edit') return { on: false }
   let decision
   try {
@@ -154,7 +164,6 @@ async function restore($: EngineInterface, rt: Runtime, tool: string, e: Input, 
     return { on: false }
   }
   if (!decision.on) return { on: false }
-  const path = pathOf(tool, e)
   if (!path) return { on: true }
   const disk = await readIfThere($, path)
   if (disk === '') return { on: true }
@@ -170,8 +179,7 @@ async function restore($: EngineInterface, rt: Runtime, tool: string, e: Input, 
   return { changes, on: true }
 }
 
-async function guard($: EngineInterface, rt: Runtime, tool: string, e: Input, deadline: number, putBack: boolean): Promise<string | undefined> {
-  const path = pathOf(tool, e)
+async function guard($: EngineInterface, rt: Runtime, tool: string, e: Input, path: string | undefined, deadline: number, putBack: boolean): Promise<string | undefined> {
   if (!path) return undefined
   const disk = await readIfThere($, path)
   if (disk === '') return undefined
@@ -217,16 +225,18 @@ export function clearGuardBlock(): void {
 
 /**
  * What to do before a tool runs: refuse it, or let it go, with changes to its input when put-back restored
- * something. The order is protect, outbound, restore, guard; restore and the guard share one deadline.
+ * something. The order is protect, outbound, restore, guard; restore and the guard share one deadline, and read the
+ * file where Claude Code will write it.
  */
 export async function beforeTool($: EngineInterface, tool: string, e: Input): Promise<{ deny: string } | { changes?: Input }> {
   const rt = await ready($)
   const denied = (await protect($, tool, e)) ?? (await outbound($, rt, tool, e))
   if (denied !== undefined) return { deny: denied }
+  const path = await filePath($, tool, e)
   const deadline = now() + BUDGET_MS
-  const restored = await restore($, rt, tool, e, deadline)
+  const restored = await restore($, rt, tool, e, path, deadline)
   const sent = restored.changes ? { ...e, ...restored.changes } : e
-  const refused = await guard($, rt, tool, sent, deadline, restored.on)
+  const refused = await guard($, rt, tool, sent, path, deadline, restored.on)
   if (refused !== undefined) return { deny: refused }
   return restored.changes ? { changes: restored.changes } : {}
 }
@@ -244,12 +254,12 @@ export async function askReason($: EngineInterface, tool: string, input: unknown
 
 /** The notice after a write: a placeholder stays as text, and the person fills in the value (spec §10). */
 export async function afterTool($: EngineInterface, tool: string, e: Input): Promise<void> {
-  const path = pathOf(tool, e)
-  if (!path) return
+  if (!pathOf(tool, e)) return
   const written = text(tool === 'Write' ? e.content : tool === 'Edit' ? e.new_string : e.new_source)
   const tags = new Set(placeholdersIn(written).map(p => p.tag))
   if (tags.size === 0) return
   const rt = await ready($)
+  const path = (await filePath($, tool, e)) as string
   const content = tool === 'Write' ? written : await readIfThere($, path)
   const found = placeholdersIn(content).filter(p => tags.has(p.tag))
   const name = rt.redactor.redactText(path, { deadline: now() + 500 }).text

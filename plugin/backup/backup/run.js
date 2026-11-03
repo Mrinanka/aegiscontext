@@ -4,6 +4,7 @@
 // The log goes to <config>/aegiscontext/log/<date>-<session>.backup.jsonl, a file of its own so the main
 // lock's writes and these never meet. Every line is cleaned with the same redactor (R-17).
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { createChecker } from '../checker/index.js';
 import { backendFor } from '../core/backends.js';
@@ -110,7 +111,17 @@ export async function runBackup(input, o) {
     const landed = realpath(dataDir);
     if (landed !== undefined && landed !== dataDir)
         own.push(landed);
-    const roots = { own, config: o.configDir, caseless: (o.platform ?? process.platform) !== 'linux' };
+    // With the home folder, the working folder and the OS, so a path is read the way Claude Code expands it (D-098).
+    const platform = o.platform ?? process.platform;
+    const roots = {
+        own,
+        config: o.configDir,
+        caseless: platform !== 'linux',
+        home: o.home ?? os.homedir(),
+        cwd,
+        windows: platform === 'win32',
+        configVar: o.configVar ?? Boolean(process.env.CLAUDE_CONFIG_DIR),
+    };
     let answer;
     try {
         const out = decide(input, { redactor, settings, roots, budgetMs: o.budgetMs ?? BUDGET_MS, readFile, realpath });

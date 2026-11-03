@@ -21,6 +21,8 @@ type Options = {
   rootFails?: boolean
   /** The last good settings an earlier version kept in `$.store`. */
   lastGood?: unknown
+  /** The home folder, so a path Claude writes as `~/...` can be read as Claude Code expands it. */
+  home?: string
 }
 
 let posix = false
@@ -51,7 +53,7 @@ function world(on: On, o: Options = {}): World {
     return next(e)
   })
   on('ui.open', () => ({ value: { isPlaced: true } }))
-  mock.env(on, { CLAUDE_CONFIG_DIR: cfg(), OS: 'Windows_NT', PATH: '' })
+  mock.env(on, { CLAUDE_CONFIG_DIR: cfg(), OS: 'Windows_NT', PATH: '', ...(o.home ? { HOME: o.home, USERPROFILE: o.home } : {}) })
   on('session.id', () => ({ value: 'sess-0003' }))
   on('session.cwd', () => ({ value: o.cwd ?? work().slice(0, -1) }))
   on('session.root', () => {
@@ -147,6 +149,17 @@ test('on by the developer: a Write of the redacted file saves the real file, and
   expect(w.received.length).toBe(1)
   expect(w.received[0]?.content).toBe(`name: demo\ntoken: ${FAKE}\nport: 2\n`)
   noFake(w, [])
+})
+
+test('on: a Write that names the file as ~/... is restored from the file Claude Code will write, and keeps its path', async ($, on) => {
+  const file = work('app.yaml')
+  const w = world(on, { files: { [file]: `token: ${FAKE}\n` }, choice: '{"all":"on"}', home: work().slice(0, -1) })
+  const ph = await readIt($, w, file)
+  await $.tool.call(write('~/app.yaml', `token: ${ph}\n`))
+  expect(w.received.length).toBe(1)
+  expect(w.received[0]?.content).toBe(`token: ${FAKE}\n`)
+  expect(w.received[0]?.file_path).toBe('~/app.yaml')
+  noFake(w)
 })
 
 test('the developer turns it on and off with /redact put-back, and the choice file holds no value', async ($, on) => {

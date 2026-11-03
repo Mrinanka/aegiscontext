@@ -242,6 +242,41 @@ test('a placeholder written into a new file gives a notice with its line, and /r
   expect(await redact($, '')).toContain('config.yaml')
 })
 
+// A path is read the way Claude Code expands it (D-098): trimmed, `~` and `~/`, `/c/...` on Windows.
+test('R-11: the overwrite guard reads a path the way Claude Code expands it', async ($, on) => {
+  const file = work('c.env')
+  const w = world(on, { files: { [file]: `token=${FAKE}\n` }, home: work().slice(0, -1) })
+  await $.session.append(row(`token=${FAKE}`))
+  const seen = (/\[REDACTED:[^\]]+\]/.exec(stored(w)) as RegExpExecArray)[0]
+  const spellings = ['~/c.env', ` ${file}`, `${file} `, ...(posix ? [] : ['/d/work/c.env'])]
+  for (const path of spellings) expect(typeof (await $.tool.call(write(path, `token=${seen}\n`))).deny).toBe('string')
+  expect(typeof (await $.tool.call(edit('~/c.env', `token=${FAKE}`, `token=${seen}`))).deny).toBe('string')
+  expect(w.ran).toEqual([])
+  noFake(w)
+})
+
+test('R-11: /redact allow lets a change blocked through ~/ go through once', async ($, on) => {
+  const file = work('c.env')
+  const w = world(on, { files: { [file]: `token=${FAKE}\n` }, home: work().slice(0, -1) })
+  await $.session.append(row(`token=${FAKE}`))
+  const seen = (/\[REDACTED:[^\]]+\]/.exec(stored(w)) as RegExpExecArray)[0]
+  expect(typeof (await $.tool.call(write('~/c.env', `token=${seen}\n`))).deny).toBe('string')
+  await redact($, 'allow')
+  await $.tool.call(write('~/c.env', `token=${seen}\n`))
+  expect(w.ran).toEqual(['Write'])
+  expect(typeof (await $.tool.call(write('~/c.env', `token=${seen}\n`))).deny).toBe('string')
+})
+
+test('the placeholder notice after an Edit through ~/ reads the file Claude Code changed', async ($, on) => {
+  const w = world(on, { home: work().slice(0, -1) })
+  await $.session.append(row(`token ${FAKE}`))
+  const seen = (/\[REDACTED:[^\]]+\]/.exec(stored(w)) as RegExpExecArray)[0]
+  // The kit's tool does not write, so the file already holds what the Edit leaves.
+  w.files[work('notes.yaml')] = `a: 1\nc: 2\nb: ${seen}\n`
+  await $.tool.call(edit('~/notes.yaml', 'b: 1', `b: ${seen}`))
+  expect(w.ui.some(l => l.includes('notes.yaml') && l.includes('line 3'))).toBe(true)
+})
+
 // ---- self-protection (§17) --------------------------------------------------------------------
 
 test("Claude can't write to the tool's data folder or plugin folder", async ($, on) => {

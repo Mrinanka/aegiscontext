@@ -251,6 +251,21 @@ test('a throw inside the checks is a failed check that follows on_check_failure'
   }
 })
 
+test('self-protection gets the home folder, the working folder and $CLAUDE_CONFIG_DIR, as the main lock does (D-098)', async () => {
+  const s = scratch()
+  try {
+    const deny = (out: unknown): boolean => ((out as { hookSpecificOutput?: { permissionDecision?: string } } | undefined)?.hookSpecificOutput?.permissionDecision === 'deny')
+    const pre = (tool_input: Record<string, unknown>, tool_name: string) => ({ hook_event_name: 'PreToolUse', session_id: 's-real', cwd: s.cfg, tool_name, tool_input })
+    const o = { configDir: s.cfg, home: s.cfg, configVar: true, loadSecrets: async () => ({ entries: [] }) }
+    assert.ok(deny(await runBackup(pre({ command: 'rm -rf ~/aegiscontext/store' }, 'Bash'), o)), 'through ~')
+    assert.ok(deny(await runBackup(pre({ command: 'rm -rf $CLAUDE_CONFIG_DIR/aegiscontext/store' }, 'Bash'), o)), 'through $CLAUDE_CONFIG_DIR')
+    assert.ok(deny(await runBackup(pre({ file_path: path.join('aegiscontext', 'markers', 's-real.json'), content: '{"running":true}' }, 'Write'), o)), 'relative to the working folder')
+    assert.ok(deny(await runBackup(pre({ file_path: '~/aegiscontext/markers/s-real.json', content: '{"running":true}' }, 'Write'), o)), 'a Write through ~/')
+  } finally {
+    s.done()
+  }
+})
+
 test('a setting the tool does not know is logged as a notice naming its source, so a test can see which settings were read', () => {
   const s = scratch()
   try {
