@@ -2,7 +2,12 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org). A change to a default is called out under **Changed defaults**.
 
-## Unreleased
+## 0.1.0-rc.3 (release candidate)
+
+### Changed
+
+- Claude Code 2.1.317 is on the tested list and is the version CI tests (D-102).
+- The "not on the tested list" warning shows on the first two sessions with a new Claude Code version, not on every session. `/redact doctor` still says it (D-103).
 
 ### Docs
 
