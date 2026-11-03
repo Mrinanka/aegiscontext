@@ -9,14 +9,25 @@ Fixes from the review of rc.1, made before the two weeks of daily use so that th
 ### Added
 
 - `/redact remove`: pick saved values to remove, by label, date and length. It also undoes `/redact allow --always`.
+- Put-back (D-096), **off by default**: `/redact put-back [on|off] [--here]` and a `put_back` setting. When Claude writes a file that already holds a hidden value, the value is put back as the file is saved, so Claude can reorganize a config it has only seen redacted. It restores only into a file that already holds the value, through Write and Edit, and never more copies than the file had. A managed `off` binds; a project can ask for `on`, with a notice naming the repo. A save can erase a real secret it cannot restore (git or Claude Code's file backups are the way back), so the docs recommend keeping it off. See `docs/personal.md`.
+- A weekly CI run against the newest Claude Code, as an early warning (`.github/workflows/weekly.yml`).
 
 ### Changed
 
 - The plugin's name no longer shows twice on warnings and log lines.
 - The backup lock's limits now name skill text, which it does not cover.
+- Only with put-back on (off by default): the overwrite guard reports instead of blocking a Write or Edit that replaces a real secret with its placeholder. A NotebookEdit is still guarded.
+
+### Fixed (Audit 3, D-098)
+
+- The overwrite guard missed a multi-line secret, such as a private key, that Claude saw through Read: rewriting the file erased it with no block. This was in rc.1, with default settings.
+- The overwrite guard also missed an Edit of two or more lines on a CRLF file: Claude Code matches Claude's LF text there, but the guard did not, so it let through an Edit that swapped a secret for its placeholder. This was in rc.1, with default settings.
+- Self-protection read a path differently from Claude Code, so a leading or trailing space, `~/`, a relative path, an empty `old_string`, curly quotes, a file it could not read, or an Edit through a placeholder could change the choice file or switch the tool off in settings. This only mattered in bypass-permissions mode. Shell commands that named the tool's folder through `~`, `$HOME`, `$env:USERPROFILE`, `%USERPROFILE%` or `/c/...` are now caught too.
+- Put-back: a shell `cd` no longer changes which folder `--here` means. A put-back decision that fails now reads as off, and the guard still runs. Broken user settings no longer carry another project's `on` across. A two-line Edit on a CRLF file is now restored the way Claude Code matches it. The choice file stays under 64 KB, and `/redact put-back` says so when it replaced an unreadable one. It no longer says "Restoring starts now" when put-back stays off. The message for a secret it could not restore is shown every time, not only the first three.
 
 ### Measured
 
+- That a mod's rewrite of a Write or Edit input reaches the tool and not the next request, on macOS, Windows and Linux (`tests/rewrite-real.test.ts`), and every door with put-back on and off (`npm run leak-test:put-back`, `leak-test:put-back-off`).
 - The built-in guard under a Team or Enterprise login (`npm run leak-test:guarded-login`), and the organization install in observe mode (`npm run leak-test:org-observe`).
 
 ### Release

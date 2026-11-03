@@ -12,7 +12,7 @@ import nodePath from 'node:path'
 import { applyEdit, checkOverwrite } from '../core/guard.ts'
 import type { LogEntry } from '../core/log.ts'
 import { isChecked, outboundText, outboundVerdict } from '../core/outbound.ts'
-import { blockedSettingsChange, isProtected, isSettingsFile, shellChangesProtected, type Roots } from '../core/protect.ts'
+import { blockedSettingsChange, expandPath, isProtected, isSettingsFile, settingsAfter, shellChangesProtected, type Roots } from '../core/protect.ts'
 import { now } from '../core/decoder.ts'
 import type { Hit, Redactor } from '../core/session.ts'
 import type { Settings } from '../core/settings.ts'
@@ -95,25 +95,47 @@ function landing(env: ActEnv, target: string): string {
   }
 }
 
-const pathOf = (tool: string, e: Input): string | undefined => (tool === 'Write' || tool === 'Edit' ? text(e.file_path) : tool === 'NotebookEdit' ? text(e.notebook_path) : undefined)
+const given = (tool: string, e: Input): string | undefined => (tool === 'Write' || tool === 'Edit' ? text(e.file_path) : tool === 'NotebookEdit' ? text(e.notebook_path) : undefined)
 
-/** Stays on in observe mode (D-058): it is no detection. */
+/** The file a writing tool names, read the way Claude Code expands it (D-098), or nothing for any other tool. */
+function pathOf(env: ActEnv, tool: string, e: Input): string | undefined {
+  const p = given(tool, e)
+  if (!p) return undefined
+  const t = p.trim()
+  // With no home folder known, a `~` path can't be read where Claude Code will write it: the check has failed (R-12).
+  if (env.roots.home === undefined && (t === '~' || t.startsWith('~/'))) throw new Error('no home folder to read a ~ path from')
+  // Roots that don't say read a path as this process would: its OS and its working folder.
+  return expandPath(p, { home: env.roots.home ?? '~', cwd: env.roots.cwd ?? process.cwd(), windows: env.roots.windows ?? process.platform === 'win32' })
+}
+
+const UNCHECKED_SETTINGS = "could not check that change to Claude Code's settings, so it was stopped. Change only the exact text in the file, or ask the user to make the change"
+
+/**
+ * Stays on in observe mode (D-058): it is no detection. As in the main lock (D-098), a path is read as Claude Code
+ * expands it, a settings change that can't be worked out is refused, and a check that fails refuses: self-protection
+ * never fails open.
+ */
 function protect(env: ActEnv, tool: string, e: Input): string | undefined {
-  const path = pathOf(tool, e)
-  if (path) {
+  const shell = tool === 'Bash' || tool === 'PowerShell'
+  if (!given(tool, e) && !shell) return undefined
+  try {
+    if (shell) {
+      const what = shellChangesProtected(text(e.command), env.roots)
+      return what ? `that command would change ${what}. Only you can do that` : undefined
+    }
+    const path = pathOf(env, tool, e) as string
     const real = landing(env, path)
     if (isProtected(path, env.roots) || isProtected(real, env.roots)) return "that file belongs to aegiscontext, and Claude can't change it"
-    if (isSettingsFile(path, env.roots) || isSettingsFile(real, { ...env.roots, config: landing(env, env.roots.config) })) {
-      const before = env.readFile(path) ?? ''
-      const after = tool === 'Write' ? text(e.content) : applyEdit(before, text(e.old_string), text(e.new_string), e.replace_all === true)
-      const key = after === undefined ? undefined : blockedSettingsChange(before, after)
-      if (key) return `that change touches ${key}, which could switch aegiscontext off. Only you can change it`
-    }
-  } else if (tool === 'Bash' || tool === 'PowerShell') {
-    const what = shellChangesProtected(text(e.command), env.roots)
-    if (what) return `that command would change ${what}. Only you can do that`
+    if (!isSettingsFile(path, env.roots) && !isSettingsFile(real, { ...env.roots, config: landing(env, env.roots.config) })) return undefined
+    const before = env.readFile(path) ?? ''
+    if (before.length > MAX_FILE_CHARS) return UNCHECKED_SETTINGS
+    const after = settingsAfter(tool, before, e)
+    if (after === undefined) return UNCHECKED_SETTINGS
+    const key = blockedSettingsChange(before, after)
+    return key ? `that change touches ${key}, which could switch aegiscontext off. Only you can change it` : undefined
+  } catch {
+    return 'could not check whether that call changes its own files or settings, so it was stopped'
   }
-  return undefined
 }
 
 // ---- events -----------------------------------------------------------------------------
@@ -164,10 +186,10 @@ function onPreTool(input: Input, env: ActEnv): Decision {
     if (!res.complete) return failureAnswer('PreToolUse', env.settings, 'timeout')
   }
 
-  const path = pathOf(tool, e)
-  if (path) {
+  if (given(tool, e)) {
     let blocked: { tags: string[]; complete: boolean }
     try {
+      const path = pathOf(env, tool, e) as string
       const disk = env.readFile(path) ?? ''
       if (disk === '') return { answer: undefined, entries: [] }
       if (disk.length > MAX_FILE_CHARS) return failureAnswer('PreToolUse', env.settings, 'guard-too-large')

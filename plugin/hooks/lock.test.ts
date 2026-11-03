@@ -6,7 +6,7 @@ import { expect, mock, test as kitTest } from 'claude-code/testing'
 
 const FAKE = ['ghp', 'Qw3rTy7UiOp9AsDf1GhJk5LzXc8VbNm2ZxCv'].join('_')
 
-type Options = { settings?: Record<string, unknown>; files?: Record<string, string>; messages?: unknown[]; policy?: Record<string, unknown>; check?: boolean; submit?: boolean; mention?: string[]; compact?: boolean; env?: boolean; mentionNothing?: boolean; version?: string; unreadable?: string[]; links?: Record<string, string>; dirs?: string[]; noSurfaces?: boolean; toolDenies?: boolean; pluginTree?: Record<string, string>; node?: string | false; userExtra?: Record<string, unknown> }
+type Options = { settings?: Record<string, unknown>; files?: Record<string, string>; messages?: unknown[]; policy?: Record<string, unknown>; check?: boolean; submit?: boolean; mention?: string[]; compact?: boolean; env?: boolean; mentionNothing?: boolean; version?: string; unreadable?: string[]; links?: Record<string, string>; dirs?: string[]; noSurfaces?: boolean; toolDenies?: boolean; pluginTree?: Record<string, string>; node?: string | false; userExtra?: Record<string, unknown>; home?: string }
 /** The engine wants absolute paths, so a test's folders follow the system it runs on. */
 let posix = false
 const work = (name = ''): string => (posix ? `/work/${name}` : `D:\\work\\${name}`)
@@ -62,7 +62,7 @@ function world(on: On, o: Options = {}): World {
   // `node` is on the PATH unless the test says it is not; the PATH also holds an empty entry, as many real ones do.
   const sep = posix ? '/' : String.fromCharCode(92)
   const nodeDir = ['', 'tools', 'node'].join(sep).replace(/^/, posix ? '' : 'D:')
-  mock.env(on, { CLAUDE_CONFIG_DIR: cfg(), OS: 'Windows_NT', PATH: o.node === false ? '' : `${nodeDir};` })
+  mock.env(on, { CLAUDE_CONFIG_DIR: cfg(), OS: 'Windows_NT', PATH: o.node === false ? '' : `${nodeDir};`, ...(o.home ? { HOME: o.home, USERPROFILE: o.home } : {}) })
   if (o.node !== false) files[`${nodeDir}${sep}node.exe`] = 'x'
   on('session.id', () => ({ value: 'sess-0002' }))
   on('session.cwd', () => ({ value: work().slice(0, -1) }))
@@ -155,6 +155,7 @@ const row = (text: string): SessionAppendInput =>
 
 const bash = (command: string) => ({ tool: 'Bash', command, description: 'x' }) as never
 const write = (file_path: string, content: string) => ({ tool: 'Write', file_path, content }) as never
+const edit = (file_path: string, old_string: string, new_string: string) => ({ tool: 'Edit', file_path, old_string, new_string }) as never
 const stored = (w: World): string => JSON.stringify(w.session.appended())
 /** The kit has no engine to stamp an origin, so the test gives the one a person's Enter would have. */
 const redact = async ($: { command: { run: (i: never) => Promise<{ text?: string }> } }, args: string): Promise<string> => (await $.command.run({ command: 'redact', args, origin: { kind: 'composer' } } as never)).text ?? ''
@@ -241,6 +242,41 @@ test('a placeholder written into a new file gives a notice with its line, and /r
   expect(await redact($, '')).toContain('config.yaml')
 })
 
+// A path is read the way Claude Code expands it (D-098): trimmed, `~` and `~/`, `/c/...` on Windows.
+test('R-11: the overwrite guard reads a path the way Claude Code expands it', async ($, on) => {
+  const file = work('c.env')
+  const w = world(on, { files: { [file]: `token=${FAKE}\n` }, home: work().slice(0, -1) })
+  await $.session.append(row(`token=${FAKE}`))
+  const seen = (/\[REDACTED:[^\]]+\]/.exec(stored(w)) as RegExpExecArray)[0]
+  const spellings = ['~/c.env', ` ${file}`, `${file} `, ...(posix ? [] : ['/d/work/c.env'])]
+  for (const path of spellings) expect(typeof (await $.tool.call(write(path, `token=${seen}\n`))).deny).toBe('string')
+  expect(typeof (await $.tool.call(edit('~/c.env', `token=${FAKE}`, `token=${seen}`))).deny).toBe('string')
+  expect(w.ran).toEqual([])
+  noFake(w)
+})
+
+test('R-11: /redact allow lets a change blocked through ~/ go through once', async ($, on) => {
+  const file = work('c.env')
+  const w = world(on, { files: { [file]: `token=${FAKE}\n` }, home: work().slice(0, -1) })
+  await $.session.append(row(`token=${FAKE}`))
+  const seen = (/\[REDACTED:[^\]]+\]/.exec(stored(w)) as RegExpExecArray)[0]
+  expect(typeof (await $.tool.call(write('~/c.env', `token=${seen}\n`))).deny).toBe('string')
+  await redact($, 'allow')
+  await $.tool.call(write('~/c.env', `token=${seen}\n`))
+  expect(w.ran).toEqual(['Write'])
+  expect(typeof (await $.tool.call(write('~/c.env', `token=${seen}\n`))).deny).toBe('string')
+})
+
+test('the placeholder notice after an Edit through ~/ reads the file Claude Code changed', async ($, on) => {
+  const w = world(on, { home: work().slice(0, -1) })
+  await $.session.append(row(`token ${FAKE}`))
+  const seen = (/\[REDACTED:[^\]]+\]/.exec(stored(w)) as RegExpExecArray)[0]
+  // The kit's tool does not write, so the file already holds what the Edit leaves.
+  w.files[work('notes.yaml')] = `a: 1\nc: 2\nb: ${seen}\n`
+  await $.tool.call(edit('~/notes.yaml', 'b: 1', `b: ${seen}`))
+  expect(w.ui.some(l => l.includes('notes.yaml') && l.includes('line 3'))).toBe(true)
+})
+
 // ---- self-protection (§17) --------------------------------------------------------------------
 
 test("Claude can't write to the tool's data folder or plugin folder", async ($, on) => {
@@ -257,6 +293,49 @@ test('a settings change that would switch the tool off is refused; another setti
   expect(typeof (await $.tool.call(write(file, '{"disableAllHooks":true}'))).deny).toBe('string')
   await $.tool.call(write(file, '{"permissions":{"allow":[]}}'))
   expect(w.ran).toEqual(['Write'])
+})
+
+test('Audit 3: a path Claude Code trims or expands still reaches the protected folder', async ($, on) => {
+  const w = world(on, { home: cfg() })
+  for (const path of [` ${cfg('aegiscontext', 'put-back.json')}`, `${cfg('aegiscontext', 'put-back.json')} `, '~/aegiscontext/put-back.json']) {
+    expect(typeof (await $.tool.call(write(path, '{"all":"on"}'))).deny).toBe('string')
+  }
+  expect(typeof (await $.tool.call(bash('echo {} > ~/aegiscontext/put-back.json'))).deny).toBe('string')
+  expect(w.ran).toEqual([])
+})
+
+test('Audit 3: a relative settings path is read from the working folder', async ($, on) => {
+  const w = world(on)
+  const rel = posix ? '.claude/settings.local.json' : '.claude\\settings.local.json'
+  expect(typeof (await $.tool.call(write(rel, '{"disableAllHooks":true}'))).deny).toBe('string')
+  expect(w.ran).toEqual([])
+})
+
+test('Audit 3: a settings Edit that cannot be checked is refused; one that can goes through', async ($, on) => {
+  const file = work(posix ? '.claude/settings.json' : '.claude\\settings.json')
+  const w = world(on, { files: { [file]: '{"theme":"dark"}' } })
+  // Curly quotes: Claude Code may match them to straight ones; the text is not in the file as written.
+  expect(typeof (await $.tool.call(edit(file, '“theme”:“dark”', '"disableAllHooks":true'))).deny).toBe('string')
+  // A placeholder (put-back could restore it after this check) or any text not in the file.
+  expect(typeof (await $.tool.call(edit(file, '"token":"[REDACTED:GITHUB_PAT #aaaaaaaaaaaaa]"', '"disableAllHooks":true'))).deny).toBe('string')
+  await $.tool.call(edit(file, '"dark"', '"light"'))
+  expect(w.ran).toEqual(['Edit'])
+})
+
+test('Audit 3: an Edit with an empty old_string is checked as the whole new file', async ($, on) => {
+  const file = work(posix ? '.claude/settings.local.json' : '.claude\\settings.local.json')
+  const w = world(on)
+  expect(typeof (await $.tool.call(edit(file, '', '{"disableAllHooks":true}'))).deny).toBe('string')
+  expect(w.ran).toEqual([])
+})
+
+test('Audit 3: a settings file that cannot be read, or is over 4 MiB, is not changed', async ($, on) => {
+  const big = work(posix ? '.claude/settings.json' : '.claude\\settings.json')
+  const locked = cfg('settings.json')
+  const w = world(on, { files: { [big]: `{"x":"${'a'.repeat(4 * 1024 * 1024)}"}`, [locked]: '{}' }, unreadable: [locked] })
+  expect(typeof (await $.tool.call(write(big, '{"disableAllHooks":true}'))).deny).toBe('string')
+  expect(typeof (await $.tool.call(write(locked, '{"disableAllHooks":true}'))).deny).toBe('string')
+  expect(w.ran).toEqual([])
 })
 
 test('a shell command that changes a protected file is refused', async ($, on) => {

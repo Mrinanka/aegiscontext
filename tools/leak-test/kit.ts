@@ -110,6 +110,8 @@ export type KitOptions = {
   aegisContext?: Record<string, unknown>
   /** Require the plugin's log to show that observe mode ran (see `observeProblem`). */
   observeProof?: boolean
+  /** The developer's put-back choice, written into each run's own config folder before it starts (D-096). */
+  putBack?: 'on' | 'off'
 }
 
 const RUN_TIMEOUT_MS = 180_000
@@ -236,7 +238,7 @@ function collectHits(record: RequestRecord, runIndex: number, doors: DoorState[]
   }
 }
 
-function runArgs(prompt: string, run: Run, sessionId: string, plugin: string | null, mcpConfig: string | undefined, safeMode: boolean, debugFile?: string): string[] {
+export function runArgs(prompt: string, run: Run, sessionId: string, plugin: string | null, mcpConfig: string | undefined, safeMode: boolean, debugFile?: string, extraTools: readonly string[] = []): string[] {
   return [
     '-p', prompt,
     ...(safeMode ? ['--safe-mode'] : []),
@@ -245,8 +247,41 @@ function runArgs(prompt: string, run: Run, sessionId: string, plugin: string | n
     ...(run.resume ? ['--resume', sessionId] : ['--session-id', sessionId]),
     ...(mcpConfig ? ['--mcp-config', mcpConfig, '--strict-mcp-config'] : []),
     // Last: this flag takes several values and swallows what follows.
-    '--allowedTools', ...ALLOWED_TOOLS,
+    '--allowedTools', ...ALLOWED_TOOLS, ...extraTools,
   ]
+}
+
+/** The developer's choice file, as `/redact put-back` would write it: paths and on or off, no value. */
+export function writePutBackChoice(configDir: string, value: 'on' | 'off'): void {
+  const dir = path.join(configDir, 'aegiscontext')
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(path.join(dir, 'put-back.json'), JSON.stringify({ all: value }))
+}
+
+/**
+ * What is wrong with the folder after a put-back door's runs: a file that is not what it should be, one that is missing,
+ * or a fake in a file that must hold none. A problem names a file and never holds a value.
+ */
+export function fileProblems(dir: string, expected: Record<string, string>, clean: readonly string[], needles: readonly Needle[]): string[] {
+  const problems: string[] = []
+  const read = (name: string): string | undefined => {
+    try {
+      return fs.readFileSync(path.join(dir, name), 'utf8')
+    } catch {
+      return undefined
+    }
+  }
+  for (const [name, text] of Object.entries(expected)) {
+    const got = read(name)
+    if (got === undefined) problems.push(`${name} is missing`)
+    else if (got !== text) problems.push(`${name} is not what it should be (${got.length} characters, ${got.split('\n').length} lines; expected ${text.length}, ${text.split('\n').length})`)
+  }
+  for (const name of clean) {
+    const got = read(name)
+    if (got === undefined) problems.push(`${name} is missing`)
+    else if (holdsFake(got, needles)) problems.push(`${name} holds a fake`)
+  }
+  return problems
 }
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures')
@@ -291,12 +326,15 @@ function removeFolder(dir: string): boolean {
 type ScenarioOutcome = { doors: DoorState[]; runs: RunResult[]; unreadable: number; failed: boolean; leftover: boolean; held: boolean }
 
 async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; port: number }, disk: Map<string, Set<string>>, allNeedles: Needle[]): Promise<ScenarioOutcome> {
-  const base = fs.mkdtempSync(path.join(opts.scratch ?? os.tmpdir(), 'leak-'))
+  // The real path: a Windows runner's temp folder has an 8.3 short name (RUNNER~1), and Claude Code then treats a file
+  // in it as outside the working folder and refuses a Write or Edit (found in step 8, spike S7).
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(opts.scratch ?? os.tmpdir(), 'leak-')))
   const work = path.join(base, 'work')
   const configDir = path.join(base, 'config')
   fs.mkdirSync(work)
   fs.mkdirSync(configDir)
   if (opts.fakeLogin) fs.writeFileSync(path.join(configDir, '.credentials.json'), JSON.stringify(fakeCredentials(opts.fakeLogin, Date.now())))
+  if (opts.putBack) writePutBackChoice(configDir, opts.putBack)
   const doors = plantDoors(s)
   const needles = needlesOf(doors)
   allNeedles.push(...needles)
@@ -324,7 +362,7 @@ async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; 
       const mock = await startLeakMock({ script: run.script(ctx), needles })
       const env = runEnv(mock, trap, configDir, opts.extraEnv, opts.fakeLogin !== undefined)
       const debugFile = opts.tierProof ? path.join(base, `debug-${index}.log`) : undefined
-      const args = runArgs(run.prompt(ctx), run, sessionId, opts.plugin, mcpConfig, opts.safeMode === true, debugFile)
+      const args = runArgs(run.prompt(ctx), run, sessionId, opts.plugin, mcpConfig, opts.safeMode === true, debugFile, s.tools)
       const outcome = await runClaude(opts.claude, args, work, env, run.stdin?.(ctx), opts.timeoutMs ?? RUN_TIMEOUT_MS)
       await mock.close()
       for (const r of mock.records) {
@@ -355,6 +393,12 @@ async function runScenario(s: Scenario, opts: KitOptions, trap: { host: string; 
     }
     searchDisk(configDir, needles.filter(n => !n.fakeId.startsWith('witness:')), disk)
     pluginFailures(configDir, needles, s.name)
+    // A put-back door is proven by what is on disk: restored with put-back on, refused and untouched with it off.
+    const wrong = opts.putBack !== undefined && (s.expectFiles || s.cleanFiles) ? fileProblems(work, s.expectFiles?.(ctx, opts.putBack) ?? {}, s.cleanFiles ?? [], needles.filter(n => !n.fakeId.startsWith('witness:'))) : []
+    for (const problem of wrong) {
+      console.error(`put-back ${opts.putBack}, ${s.name}: ${problem}`)
+      failed = true
+    }
     const shown = opts.tierProof ? warningProblem(debugLogs, opts.tierProof, sentRequest) : undefined
     if (shown) {
       console.error(`${opts.tierProof} run, ${s.name}: ${shown}`)

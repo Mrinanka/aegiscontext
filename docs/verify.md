@@ -34,6 +34,8 @@ Then:
 | `npm run leak-test:backup-limits` | The doors the backup lock does **not** cover leak, as the docs say. The list of limits is proven, not claimed. |
 | `npm run leak-test:guarded-login` | A made-up Team login in the run's own folder seats Claude Code's built-in guard, with no account and no managed file. The doors the guard passes over must leak, and every other door must stay clean. Claude Code also tries `api.anthropic.com` here; the kit's proxy refuses it and the report marks it "expected, refused". |
 | `npm run leak-test:guarded-login-hold` | The same with `on_check_failure: hold`: those doors must be refused, with no request sent. |
+| `npm run leak-test:put-back` | Every door above stays clean with put-back on. Five more doors read a file and write it back from its placeholders, and the file on disk is checked afterwards: a Write (then `/compact` and a resume), an Edit through a placeholder line, a failed Edit, a new file and a subagent's write. The real file must come out whole, a failed Edit and a new file must change nothing real, and no request may hold a fake. |
+| `npm run leak-test:put-back-off` | The same doors with put-back off: the guard refuses the rewrite, the file stays as it was, and no request holds a fake. |
 
 Exit codes: 0 pass, 1 a fake was seen (or a baseline was blind), 2 the run was invalid or badly called.
 
@@ -47,9 +49,14 @@ The runs below write the **machine's managed settings file** while they run, so 
 | `npm run leak-test:org-observe` | The organization install with `mode: observe`: every fake must be seen, because observe hides nothing, and the plugin's log must say it would have hidden them. |
 | `npm run leak-test:guarded` | The plugin as a user plugin on a machine with managed settings: the doors Claude Code's built-in guard passes over must leak, and every other door must stay clean. |
 
+### The weekly run
+
+`.github/workflows/weekly.yml` installs the **newest** Claude Code each week, with its install scripts off, and runs `claude plugin validate` and `claude plugin test`, the kit's baseline, the rewrite test (`tests/rewrite-real.test.ts`), every door, the put-back doors on and off, the backup lock with and without its limits, and the Team login run. It prints the version it tested first. It is an early warning, so a change in Claude Code is seen before you install it. It proves nothing for a release, which is tested on the pinned version. You can start it by hand from the Actions tab. GitHub switches a scheduled workflow off after 60 days with no activity in the repository.
+
 ### What the kit does not prove
 
 - It tests the pinned Claude Code (see [tested-versions.md](tested-versions.md)), against a pretend model. It does not call the real API.
+- A `-p` run cannot show a permission dialog or the notice that a repo turned put-back on, so those two are hand checks ([release-checklist.md](release-checklist.md)).
 - No network traffic is **proven** only on Linux, where a no-network run is part of CI. On Windows and macOS the proxy trap sees only traffic that honours proxy settings.
 - The login runs use a made-up login. They prove that a Team or Enterprise plan seats the built-in guard and what happens then, not how a real account behaves.
 - The VS Code extension and the desktop app run their own copy of Claude Code; they were checked by hand once per release ([release-checklist.md](release-checklist.md)), not by the kit.

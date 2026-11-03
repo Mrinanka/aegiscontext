@@ -3,7 +3,7 @@
 How we build the tool described in `spec.md`, and how we prove it works.
 
 - **Status:** draft.
-- **Last updated:** 2 November 2026 (step 7, D-090; signed tags, D-094; earlier: step 3 hooks, D-042; 7 steps, D-018; scope cuts, D-019).
+- **Last updated:** 2 November 2026 (step 8, D-095, D-096; step 7, D-090; signed tags, D-094; earlier: step 3 hooks, D-042; 7 steps, D-018; scope cuts, D-019).
 
 ---
 
@@ -27,9 +27,10 @@ One step = one session: `/plan-step` → approve → build → `/verify` → `/s
 | 4 | **Rest of the main lock** | Leak test clean for everything v1 covers; all commands work; `claude plugin validate`/`test` pass |
 | 5 | **Backup lock + tuning** | Safe-mode leak test passes within the backup lock's limits; targets set, written down and met |
 | 6 | **Release** | A newcomer installs and verifies from the README alone. **Audit 2.** |
-| 7 | **Fixes before daily use** (added after `v0.1.0-rc.1`, D-090) | The backup lock's limits name skill text; `/redact remove` works; no doubled name; the login and observe runs pass in CI; `v0.1.0-rc.2` can be tagged. |
+| 7 | **Fixes before daily use** (added after `v0.1.0-rc.1`, D-090) | The backup lock's limits name skill text; `/redact remove` works; no doubled name; the login and observe runs pass in CI. |
+| 8 | **Put secrets back + weekly CI + Audit 3** (added after step 7, D-095) | The rewrite test passes, or the design is changed and approved; put-back works by the settings table, and the leak kit stays clean with it on and off; the weekly run is green; the audits are done; `v0.1.0-rc.2` can be tagged. |
 
-**Audits** (steps 3 and 6, before `/ship`): built-in `/security-review` and `/code-review high` on the step's diff.
+**Audits** (steps 3, 6 and 8, before `/ship`): built-in `/security-review` and `/code-review high` on the step's diff.
 
 ## Ground rules
 
@@ -37,7 +38,7 @@ One step = one session: `/plan-step` → approve → build → `/verify` → `/s
 - **Dependencies:**
   - None at runtime.
   - Build and test tools are dev dependencies, pinned with a lockfile.
-- **Testing:** done against a fixed Claude Code version, never just "latest".
+- **Testing:** done against a fixed Claude Code version, never just "latest". One exception: the weekly CI run (step 8) uses the newest version as an early warning. It proves nothing for a release.
 - **CI:** GitHub Actions on macOS, Windows and Linux, with actions pinned to commit IDs (not tags).
 - **Releases:** semantic versions, SHA-256 checksums, and tags signed by the maintainer from `v0.1.0-rc.2` on (D-094).
 - **Fake secrets only:** built at test time from pieces, never written whole in a file.
@@ -214,6 +215,32 @@ Then **Audit 1**.
 Before release, the maintainer uses it for their own daily work for at least two weeks.
 
 Then **Audit 2**.
+
+---
+
+## Step 8: Put secrets back and the weekly run
+
+The design is D-096, accepted on 2026-11-03 after item 1 passed on 3 systems (spike S7). It stays off by default.
+
+1. **Test first.** Does a rewritten tool input stay out of the next request to the model? If it doesn't, the model would see the real value: stop and redesign before any feature code.
+2. **Then the rules.** Only after item 1 passes: mark D-096 accepted, then change spec §1, §2, §5.1, §9, §10, §14, §15, §22, §23, R-09, R-11 and the new R-18, the "stricter only" lines in the README and `docs/personal.md`, and the disk rule in `CLAUDE.md`. Done 2026-11-03.
+3. **Restore rule.** A value goes back only into a file that already holds it on disk. Otherwise the placeholder stays, the write succeeds, and a message says how many values could not be restored. Nothing breaks.
+4. **Commands.** `/redact put-back on` and `off`, `/redact put-back` for the state and why, and `--here` for one folder. The choice is kept in the tool's own folder, never in the repo. Claude can't run them (R-16).
+5. **Order, first match wins** (spec §10): observe mode off; managed off (it binds with no `locked`); repo off; an unreadable choice file off; `--here`; the developer's choice for all projects; repo on, with the notice, if a surface can show it; default off.
+6. **The notice** always shows which repo turned it on, even with `notices: off`. Under `claude -p` nothing can be shown, so a repo's "on" is ignored.
+7. **Main lock only.** The backup lock keeps refusing those writes.
+8. **Docs.** State the risk and recommend keeping it off. Publish the table below, and say that "Developer says" covers the choice for all projects and `--here`.
+9. **Weekly run.** A scheduled CI job against the newest Claude Code. It is an early warning and proves nothing for a release, so add that exception to the "never just latest" ground rule.
+10. **Audit 3.** `/security-review` and `/code-review high` on everything since `2f00d31`, because step 7 and D-087 to D-089 were never audited (progress, Known issues).
+
+| Managed says | Developer says | Repo says | Result |
+|---|---|---|---|
+| Nothing | Nothing | Nothing | Off (the default) |
+| Nothing | Nothing | On | On, with the notice |
+| Nothing | On | Nothing | On |
+| Nothing | On | Off | Off |
+| Nothing | Off | On | Off, because the developer's choice wins |
+| Off | Anything | Anything | Off |
 
 ---
 

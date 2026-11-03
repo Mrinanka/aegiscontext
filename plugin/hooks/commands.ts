@@ -20,6 +20,7 @@ import { ready, registeredChanged } from './runtime.ts'
 import { addAllowedTag, hiddenSummary, placedFiles, setGuardPass } from './state.ts'
 import { clearGuardBlock, lastGuardBlock } from './tools.ts'
 import { learnValues, removeValues } from './panes.tsx'
+import { putBackNow, saveChoice } from './putback.ts'
 
 export const COMMAND = 'redact'
 export const DOCTOR = 'aegiscontext:doctor'
@@ -27,7 +28,8 @@ export const ADD_PANE = 'aegiscontext-add'
 export const LEARN_PANE = 'aegiscontext-learn'
 export const REMOVE_PANE = 'aegiscontext-remove'
 
-const USAGE = 'Use: /redact, /redact add [--label name], /redact learn, /redact remove, /redact allow [tag] [--always], /redact backup [managed], /redact self-check [--report], /redact doctor.'
+const USAGE = 'Use: /redact, /redact add [--label name], /redact learn, /redact remove, /redact allow [tag] [--always], /redact put-back [on|off] [--here], /redact backup [managed], /redact self-check [--report], /redact doctor.'
+const PUT_BACK_USAGE = 'Use: /redact put-back to see the state, /redact put-back on, /redact put-back off, and add --here for this folder only.'
 const MAX_DEPTH = 3
 const MAX_FILE = 1024 * 1024
 const MAX_REMOVE_ROWS = 200
@@ -51,10 +53,48 @@ async function status($: EngineInterface): Promise<string> {
   const lines = [
     `Version ${PLUGIN_VERSION}: main lock running. ${await backupLine($)}`,
     `Mode: ${rt.settings.mode === 'observe' ? 'OBSERVE, secrets are NOT being hidden' : 'enforce'}.`,
+    `Put-back ${await putBackWhy($, rt)}.`,
     `Hidden this session: ${hidden.length}.`,
     ...hidden.slice(-20).map(h => `  ${h.label}${h.hint ? ` ...${h.hint}` : ''} in ${h.where} #${h.tag}`),
   ]
   if (placed.length > 0) lines.push('Files that got a placeholder:', ...placed.slice(-20).map(p => `  ${p.file}, line ${p.line}`))
+  return lines.join('\n')
+}
+
+/** "off: the default", "on: your choice for all projects" and so on (spec §10). */
+async function putBackWhy($: EngineInterface, rt: Awaited<ReturnType<typeof ready>>): Promise<string> {
+  try {
+    return (await putBackNow($, rt)).why
+  } catch {
+    return 'off: could not be checked'
+  }
+}
+
+/** `/redact put-back [on|off] [--here]`: the state, or the developer's choice for all projects or this folder (D-096). */
+async function putBack($: EngineInterface, rest: string): Promise<string> {
+  const words = rest.split(/\s+/).filter(Boolean)
+  const unknown = words.some(w => w !== 'on' && w !== 'off' && w !== '--here')
+  const values = words.filter(w => w === 'on' || w === 'off')
+  const here = words.includes('--here')
+  if (unknown) maskNext = rest
+  if (unknown || values.length > 1 || (here && values.length === 0)) return `Nothing changed. ${PUT_BACK_USAGE}`
+  const rt = await ready($)
+  const value = values[0] as 'on' | 'off' | undefined
+  if (value === undefined) return `Put-back ${await putBackWhy($, rt)}.`
+  let saved
+  try {
+    saved = await saveChoice($, value, here)
+  } catch {
+    return 'Your choice could not be saved, so nothing changed.'
+  }
+  const scope = here ? 'this folder' : 'all projects'
+  const lines = [`Saved: put-back ${value} for ${scope}.`]
+  if (saved.replacedUnreadable) lines.push('Your put-back choice file could not be read, so it was replaced: any earlier choices in it are gone.')
+  const now = await putBackNow($, rt).catch(() => undefined)
+  if (value === 'on' && now && !now.on) lines.push(`It stays off for now: ${now.why.replace(/^off: /, '')}.`)
+  if (value === 'off' && now?.on) lines.push(`It stays on for now: ${now.why.replace(/^on: /, '')}.`)
+  if (value === 'on') lines.push("Put-back lets Claude's file writes carry your real secrets into files that already hold them, and it can erase a real secret it can't restore. Keep it off unless you need it.")
+  if (value === 'on' && now?.on) lines.push('Restoring starts now. The note that tells Claude about it is added at the next new session.')
   return lines.join('\n')
 }
 
@@ -283,6 +323,7 @@ export async function doctor($: EngineInterface): Promise<string> {
     `Node (needed by the backup lock): ${node ? `${node}` : 'not found on the PATH'}.`,
     `Marker: ${marker ? 'present' : 'missing'}${beatAge}.`,
     `Settings: ${rt.problems.length === 0 ? 'valid' : rt.problems.join('; ')}.`,
+    `Put-back ${await putBackWhy($, rt)}.`,
     ...(fix.length > 0 ? ['To fix:', ...fix.map(f => `  ${f}`)] : []),
   ].join('\n')
 }
@@ -298,6 +339,7 @@ export async function redactCommand($: EngineInterface, args: string): Promise<s
     case 'learn': return learn($)
     case 'remove': return remove($, rest)
     case 'allow': return allow($, rest)
+    case 'put-back': return putBack($, rest)
     case 'backup': return backup($, rest)
     case 'self-check': return selfCheck($, rest)
     case 'doctor': return doctor($)
