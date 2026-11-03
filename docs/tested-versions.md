@@ -4,7 +4,7 @@ AegisContext hooks into Claude Code, so it is only as good as the Claude Code it
 
 AegisContext is tested in real day-to-day development by its maintainer, and that testing goes on with each new Claude Code release. The latest is 2.1.317: in the terminal, the VS Code extension and the desktop app's Code tab, on Windows and on macOS/Linux, hiding works as expected.
 
-## This release (v0.1.0-rc.2 and later)
+## This release (v0.1.0-rc.3)
 
 | Claude Code | Where | How it was checked |
 |---|---|---|

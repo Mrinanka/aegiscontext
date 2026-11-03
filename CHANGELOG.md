@@ -2,7 +2,7 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org). A change to a default is called out under **Changed defaults**.
 
-## Unreleased
+## 0.1.0-rc.3 (release candidate)
 
 ### Changed
 
