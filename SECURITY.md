@@ -27,7 +27,13 @@ The limits in `docs/spec.md` section 22 are known and documented, for example a 
 
 Release tags from `v0.1.0-rc.2` on are signed with the maintainer's GPG key; `v0.1.0-rc.1` is not signed. How to check one: [docs/verify.md](docs/verify.md#check-a-release).
 
-The key's fingerprint is added here before `v0.1.0-rc.2` is tagged.
+The signing key (Ed25519, `Mrinanka <mrinanka.dhar@gmail.com>`, made on 2026-11-03, expires on 2028-11-02):
+
+```
+3EB709B99205963468513F06CBD485A98A52F738
+```
+
+`git tag -v` names it by this fingerprint, or by its last 16 characters (`CBD485A98A52F738`). Its public key is at <https://github.com/Mrinanka.gpg>. If the key is ever replaced or revoked, this section says so, and from which release on.
 
 ## Supported versions
 
