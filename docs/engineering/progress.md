@@ -1,8 +1,8 @@
 # Progress
 
-Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
+Spec: `docs/engineering/spec.md`. Plan: `docs/engineering/plan.md`. Parked work: spec §23.
 
-**Current focus:** Steps 0 to 8 are done. Step 8 merged into `develop` (PR #9) after `/security-review`, `/code-review high` and their fixes. Next is `v0.1.0-rc.2` (`docs/release-checklist.md`): the owner merges `develop` into `release`, makes the signing key and puts its fingerprint in `SECURITY.md` (D-094), then signs the tag on the tip of `release`. Then the hand checks and the two weeks of daily use, with the other "Before `v0.1.0`" items. `v0.1.0-rc.1` stays an unsigned draft release.
+**Current focus:** Steps 0 to 8 are done, and `v0.1.0-rc.2` is published as a signed pre-release (2026-11-03). Next: the two weeks of daily use and the hand checks, with the other "Before `v0.1.0`" items in `docs/engineering/release-checklist.md`. `v0.1.0-rc.1` stays an unsigned draft release.
 
 ## Steps
 
@@ -18,18 +18,21 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 | 7 | Fixes before daily use (D-090) | `step-7` | ☑ |
 | 8 | Put secrets back + weekly CI + Audit 3 (D-095) | `step-8` | ☑ |
 
-"Done when" for each step is in `docs/plan.md`, "The 7 steps".
+"Done when" for each step is in `docs/engineering/plan.md`, "The 7 steps".
 
 ## Known issues
 
 Bugs, unfinished bits and open questions. Features we chose not to build go in spec §23.
 
-- Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
+- The plugin's own guard warning (`src/core/guard-check.ts:37,42`, asserted by `tests/guard-check.test.ts:33,47`) says compaction summaries are "NOT being checked" on a guarded machine. The measured result (spec §22, built-in guard) is that the resume check finds a raw summary and holds the next message, so the model is not sent it. The docs give that measured result; changing the warning is a product change and waits for the owner.
+- Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/engineering/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
+- A pull request from `develop` into `release` shares `ci.yml`'s concurrency group with `develop`'s own merge run (both are named after `develop`), so the PR run cancels the merge run and its 10 cancelled checks block the merge, as in D-099. For rc.2 (PR #12) the cancelled run 41658861629 was rerun after the PR run passed. A fix (the event name in the group) would reopen D-099's rejected option and waits for the owner's yes.
 - `npm run release:pack` refuses only when the output folder already holds archives for the same tag, so it overwrites another tag's `SHA256SUMS` in `dist/release`. Seen on 2026-11-03 with a trial rc.2 pack beside the local rc.1 files; the local rc.1 file was rebuilt. The release workflow packs in a fresh checkout, so a published release is not affected.
 - Put-back (step 8), the owner's call on 2026-11-03 (D-097): a broken managed block does not read as off. Managed `put_back: false`, `"Off"`, or a valid `off` beside any other bad managed value leaves `managedOff` false on a first load (scratch run), and a fallback takes the last good value, so a developer's or repo's `on` still counts. Only an error in `/redact doctor` says so.
 - Put-back (step 8): whether `$.state` is cleared by `/clear` is unknown (its docs say "for the session"), so the put-back note and the once-a-session notice may carry over. Check with the `/clear` hand check.
 - Put-back (step 8): a catch added by `keepHidden` reaches `$.state` at the next stored row, not at once, so a worker killed in between forgets it. Only a value the D-071 filter would drop depends on it.
 - `plugin/hooks/shield.test.ts` "R-12: a check that could not finish hides what it found and warns; hold withholds" takes about 4.3 s against the kit's 5 s limit on this machine, before and after step 8, and timed out once on a slow run. Not changed; watch it in CI.
+- The promo video project (`promo/`, Remotion) is git-ignored and lives only on the maintainer's machine; the owner plans to move it to its own repo later (2026-11-04). Only its README loop is in the repo (`docs/media/`). The video shows numbers from docs/scores.md and a leak test run (135 of 138, 0 of 112, 16 doors), and nothing in CI checks them, so re-render (`npm run check` in `promo/` checks the claims against their sources) when they change.
 - Probe tests (`claude plugin test`) don't run in CI. The pinned `claude` now makes that possible; it wasn't added in step 1.
 - `claude plugin test` (2.1.316): a `turn.step` stream's `.result` resolves `undefined` even when the step beneath answers, contrary to its doc (`HookStream.result`, `claude-code.d.ts:5383`). Probe tests check the hold through its effects instead. Report it upstream.
 - The desktop app's probe log had no `start` line, so its Claude Code version wasn't recorded. Check before release.
@@ -41,7 +44,7 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - CI's password store and Node steps print evidence but can't fail the job. A change in them only shows if someone reads the log.
 - Killing the kit mid-run, or using `--keep`, leaves a scratch folder holding that run's fakes.
 - Step 2 rejects 3 Gitleaks rules (D-032): `kubernetes-secret-yaml` stays out (D-038, spec §22); `facebook-access-token` has no required literal; `pkcs12-file` matches file names, not text.
-- False alarms on the typescript and @types/node sources (2.9 MB), after step 5: with file names 12 hidden (4.16 per MB); with no file name 159 (55.14 per MB), 76.30 per MB through the pipeline. What is left is TypeScript annotations such as `privateKey: KeyObject;`, a PascalCase type after a label, which looks the same as a letters-only password. The log-like set (`tools/test-sets/logs.ts`) is 214.33 per MB, 136 of 225 hits being 32-hex values after `key=` that Gitleaks' generic rule takes for API keys; many real keys look the same, so they stay. Numbers and the before/after are in `docs/targets.md`.
+- False alarms on the typescript and @types/node sources (2.9 MB), after step 5: with file names 12 hidden (4.16 per MB); with no file name 159 (55.14 per MB), 76.30 per MB through the pipeline. What is left is TypeScript annotations such as `privateKey: KeyObject;`, a PascalCase type after a label, which looks the same as a letters-only password. The log-like set (`tools/test-sets/logs.ts`) is 214.33 per MB, 136 of 225 hits being 32-hex values after `key=` that Gitleaks' generic rule takes for API keys; many real keys look the same, so they stay. Numbers and the before/after are in `docs/engineering/targets.md`.
 - With no file name, rules with a path condition still run (D-029), so `hashicorp-tf-password` hides quoted 8 to 20 character values after `password` even in non-Terraform text.
 - A hit's area is the pattern's longest match on each side of the keyword. 16 rules reach up to about 32 KB on each side, so about 64 KB per hit; many such hits are bounded by the 4 s budget (`complete: false`), which step 3 must treat as a check failure (R-12).
 - `tools/rules/sample.ts` builds random strings from patterns for tests only; they hold no fixed key.
@@ -354,3 +357,11 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 - The owner merged PR #10 (`eddaf88`). `develop`'s push run on `4ecb427` (41650577312) passed on the three systems with the org, org-observe, guarded, guarded-hold and Team and Enterprise login runs. "Every door" is skipped on Linux by design (`ci.yml:84`) and passed on Windows and macOS. The weekly run passed on `develop` too (41650577592). Checklist line ticked.
 - The owner made the key in Git Bash's GnuPG 2.4.7: Ed25519, sign only, `Mrinanka <mrinanka.dhar@gmail.com>`, expires 2028-11-02. Its public key is on the GitHub profile: `https://github.com/Mrinanka.gpg` serves it with the same fingerprint, and the GitHub API lists it with `can_sign` and the email verified. `git config --global user.signingkey` is set. The owner backed up the private key and the revocation file offline and removed the exported copy from the disk. The fingerprint is in `SECURITY.md`. Checklist line ticked.
 - Left for the owner: the merge of `develop` into `release`, then the signed tag on its tip.
+
+### 2026-11-03: `v0.1.0-rc.2` published
+- PR #12 merged `develop` into `release` (`7cafdb7`). Its own CI run passed; `develop`'s merge run had been cancelled by it (Known issues) and passed when rerun.
+- The owner signed `v0.1.0-rc.2` on `7cafdb7` and pushed it. `git tag -v`: `Good signature`, key `3EB709B99205963468513F06CBD485A98A52F738`; GitHub marks the tag verified (`reason: valid`).
+- Three macOS jobs were cancelled before they started, with "The job was not acquired by Runner of type hosted even after multiple attempts" (GitHub's macOS capacity): the release run's README install, CI on `release` and the weekly run on `release`. "Re-run failed jobs" passed all three (attempt 2 of runs 41663502971, 41662965820, 41662965827). The weekly run on the tag passed first time (41663502736).
+- The draft release was checked as `docs/verify.md` says before the owner published it: both archives `OK` against `SHA256SUMS`; the `.tar.gz` rebuilt from the signed tag on Windows has the published hash (`19473acd…819e`); the archive's `SECURITY.md` holds the fingerprint and `plugin.json` says `0.1.0`. The owner published it as a pre-release (2026-11-03T16:03Z).
+- `docs/release-checklist.md`: the merge into `release` and the signed tag ticked. The weekly line stays open until its first scheduled run on `release`.
+- Next: the two weeks of daily use, the hand checks (the owner asks for exact steps first), and the other "Before `v0.1.0`" items.

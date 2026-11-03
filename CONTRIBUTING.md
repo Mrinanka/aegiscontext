@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for helping. The rules are short.
+Thank you for helping keep secrets out of model context. The rules are short.
 
 ## Ground rules
 

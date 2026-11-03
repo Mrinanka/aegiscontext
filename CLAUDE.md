@@ -1,24 +1,24 @@
 # AegisContext
 
 An open-source (Apache-2.0) Claude Code plugin (mod) that hides secrets before the model sees them.
-Spec: @docs/spec.md. Plan: @docs/plan.md. Progress: docs/progress.md.
+Spec: @docs/engineering/spec.md. Plan: @docs/engineering/plan.md. Progress: docs/engineering/progress.md.
 
 ## Workflow
 
-- 7 steps (`docs/plan.md`, "The 7 steps"); one step per session.
+- 7 steps (`docs/engineering/plan.md`, "The 7 steps"); one step per session.
 - Loop: `/plan-step` (in plan mode) → I approve → tests first, then code → `/verify` → fix → `/ship` → `/clear`.
 - Steps 3, 6 and 8 end with an audit: `/security-review` and `/code-review high` before `/ship`.
 - If a step spans sessions, commit a `step <n> (wip): ...` checkpoint when I ask; no PR until `/ship`.
 - Spec and plan: propose a change, edit only after I say yes, and log it as a decision.
 - Parked features go to spec §23; bugs and unfinished bits go to progress "Known issues". Nothing deferred lives only in session notes.
-- [Step 0] items in the spec are unconfirmed. Don't build on them until `docs/findings-step0.md` confirms them.
+- [Step 0] items in the spec are unconfirmed. Don't build on them until `docs/engineering/findings-step0.md` confirms them.
 
 ## Questions
 
 - Research first (docs/, code, the mod API types named by the `plugin-authoring` skill, official docs, a quick scratch experiment). Don't ask what you can find out.
 - Ask with AskUserQuestion, recommended option first and labelled "(Recommended)". Give each option's main pro and con.
 - Back the recommendation with at least one source actually read or run this session (`file:line`, spec §/R-id, D-id, findings row, docs URL, test output). Never invent sources or numbers. Label anything from memory "(unverified)". If evidence is weak, say so and propose the cheapest way to get it.
-- Don't reopen an accepted decision in `docs/decision-log.md` without saying so.
+- Don't reopen an accepted decision in `docs/engineering/decision-log.md` without saying so.
 
 ## Rules
 

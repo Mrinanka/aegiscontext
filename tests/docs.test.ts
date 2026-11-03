@@ -8,6 +8,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { DEFAULTS, ENUMS } from '../src/core/settings.ts'
 import { uninstallText } from '../src/core/uninstall.ts'
+import { findPlaceholders } from '../src/core/placeholder.ts'
+import { RULES } from '../src/checker/rules.generated.ts'
 
 const root = path.join(import.meta.dirname, '..')
 const rel = (...p: string[]): string => path.join(root, ...p)
@@ -16,7 +18,7 @@ const read = (...p: string[]): string => fs.readFileSync(rel(...p), 'utf8')
 /** The files the docs checks read: the README, the repo files and docs/*.md except the history logs. */
 const DOC_FILES = [
   'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'CHANGELOG.md', 'plugin/README.md',
-  'docs/personal.md', 'docs/managed.md', 'docs/verify.md', 'docs/troubleshooting.md', 'docs/tested-versions.md', 'docs/scores.md', 'docs/release-checklist.md',
+  'docs/personal.md', 'docs/managed.md', 'docs/verify.md', 'docs/troubleshooting.md', 'docs/tested-versions.md', 'docs/scores.md', 'docs/engineering/release-checklist.md', 'docs/README.md', 'docs/engineering/README.md',
   'docs/snippets/README.md',
 ]
 
@@ -103,13 +105,32 @@ test('the release workflow runs on tags, calls CI first, and makes a draft', () 
 
 test('the limits of the backup lock name skill text wherever they are listed (the kit proves it leaks there)', () => {
   const says = (text: string, needle: string): boolean => text.split('\n').some(l => l.includes(needle) && /skill text/.test(l))
-  const spec = read('docs', 'spec.md')
-  assert.ok(says(spec, '**Doors it does not cover**'), 'spec section 5.2')
+  const spec = read('docs', 'engineering', 'spec.md')
+  assert.ok(says(spec, '**Outside its scope, measured**'), 'spec section 5.2')
   assert.ok(says(spec, "It doesn't cover `@` files"), 'spec section 22')
-  assert.ok(says(read('docs', 'personal.md'), 'It does **not** cover `@` files'), 'docs/personal.md')
+  assert.ok(says(read('docs', 'personal.md'), 'its scope leaves out `@` files'), 'docs/personal.md')
 })
 
 test('the README command table lists every /redact subcommand', () => {
   const table = read('README.md').split('\n').filter(l => l.startsWith('| `/redact')).join('\n')
   for (const name of SUBCOMMANDS) assert.ok(table.includes(`/redact ${name}`), `the README table has no /redact ${name}`)
+})
+
+test('every placeholder example is one the tool can print: a real label, a valid tag, and an AWS hint an AWS key can end with', () => {
+  const labels = new Set(RULES.map(r => r.label))
+  const files = ['README.md', 'plugin/README.md', 'docs/engineering/spec.md', 'src/core/placeholder.ts']
+  let seen = 0
+  for (const f of files) {
+    for (const m of read(...f.split('/')).matchAll(/\[REDACTED:[^\]\n]*\]/g)) {
+      const example = m[0]
+      // Only full examples with a hint; templates such as `[REDACTED:<label> ...]` are not examples.
+      const parts = /^\[REDACTED:([A-Z0-9_]+) \.\.\.([A-Za-z0-9]{4}) #([^\]]+)\]$/.exec(example)
+      if (!parts) continue
+      seen++
+      assert.deepEqual(findPlaceholders(example), [[0, example.length]], `${f}: ${example} is not a placeholder the tool can print (tag must be 13 of a-z, 2-7)`)
+      assert.ok(labels.has(parts[1] as string), `${f}: ${example} has the label ${parts[1]}, which no checker rule uses`)
+      if ((parts[1] as string).startsWith('AWS_')) assert.match(parts[2] as string, /^[2-7A-Z]{4}$/, `${f}: an AWS key ID ends in A-Z or 2-7, so ${example} can't be its hint`)
+    }
+  }
+  assert.ok(seen >= 4, `expected the README, plugin README, spec section 9 and placeholder.ts examples, found ${seen}`)
 })

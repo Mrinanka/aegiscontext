@@ -2,11 +2,11 @@
 
 For an administrator who rolls AegisContext out to many machines. The plugin then runs in the `prepend` tier, outermost: no user plugin can skip it, a user cannot switch it off, and settings can be locked.
 
-## Why not just let people install it
+## Why the organization install
 
-Two reasons:
+It closes two gaps a personal install can't:
 
-1. **The built-in guard.** On a machine with managed settings or a managed MCP server file, or with a Team or Enterprise login (any one is enough), Claude Code seats a guard plugin (`sec-default@builtin`) outermost and routes some events past user-tier plugins: instruction files, hook context, skill text, attachments, the instructions note, compaction, and some rows. A user-installed copy cannot close that; under `on_check_failure: hold` it refuses every request instead. The organization install can, because `prependPlugins` lets you seat AegisContext outside the guard. `npm run leak-test:guarded` measures what the guard passes over; `npm run leak-test:org` proves the organization install leaves nothing open (both run in CI).
+1. **The built-in guard.** On a machine with managed settings or a managed MCP server file, or with a Team or Enterprise login (any one is enough), Claude Code seats a guard plugin (`sec-default@builtin`) outermost and routes some events past user-tier plugins: instruction files, hook context, skill text, attachments, the instructions note, compaction, and some rows. (A compaction summary is then found by the resume check, which holds the next message, so the model is not sent it.) A user-installed copy cannot close that; under `on_check_failure: hold` it refuses every request instead. The organization install can, because `prependPlugins` lets you seat AegisContext outside the guard. `npm run leak-test:guarded` measures what the guard passes over; `npm run leak-test:org` proves the organization install leaves nothing open (both run in CI).
 2. **Only a folder marketplace reaches `prepend`.** A plugin fetched from GitHub or a git URL counts as a user's. The marketplace must be a folder on each machine, with the plugin entry given as a relative path.
 
 ## What you need on each machine
@@ -58,6 +58,6 @@ or deliver them by MDM (Jamf, Intune) or from the Claude server. For an offline 
 
 Run `/redact doctor` on it. It should say Managed settings are present, show the plugin tier as `prepend`, and say the events reach the plugin. If `/redact` does not exist, the plugin did not load: check that `<MARKETPLACE-FOLDER>` is the folder that holds `.claude-plugin/`.
 
-## Limits
+## Where the edges are
 
-Safe mode turns the main lock off even here; a backup lock installed through managed settings still runs in safe mode. The full list is section 22 of the spec.
+Safe mode turns the main lock off even here. The backup lock installed through managed settings keeps running in safe mode (`npm run leak-test:managed` proves it). The full list is [section 22 of the spec](engineering/spec.md).

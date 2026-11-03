@@ -18,7 +18,7 @@ The pinned version is the one in `tools/leak-test/claude-pin/package-lock.json`.
 
 ## Not yet checked
 
-- The Code tab of the desktop app: not reported. Its Claude Code version was not recorded; check it by hand before v0.1.0 ([release-checklist.md](release-checklist.md)).
+- The Code tab of the desktop app: not reported. Its Claude Code version was not recorded; check it by hand before v0.1.0 ([release-checklist.md](engineering/release-checklist.md)).
 - The desktop app's WSL sessions: plugins are not available there.
 - Claude Code on the web and Agent SDK hosts: not covered.
 

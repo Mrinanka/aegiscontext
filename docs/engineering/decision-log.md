@@ -155,7 +155,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Options considered: Both, with a guide for each / developers first, with managed install as an appendix.
 - Decision: Both, as first-class modes.
 - Why: The owner wants any developer to "just use it", and companies to be able to adopt and test it themselves.
-- Trade-offs: Two install paths to document and test. Personal mode has weaker guarantees (tier bypass, `allowManagedHooksOnly`), which must be stated clearly.
+- Trade-offs: Two install paths to document and test. Personal mode has limits the organization install closes (tier bypass, `allowManagedHooksOnly`), which must be stated clearly.
 - Revisit when: Step 0 shows a mode can't meet its stated guarantees.
 - Links: spec §5.3, §19; R-05.
 
@@ -493,14 +493,14 @@ Tiny clarifications go under **Minor** at the bottom.
   - Step 3 verifies that `security -i` doesn't record the value anywhere.
 - Why: Two code paths would leave the rarely used one the least tested, where a bug can lose saved secrets. The owner first raised blocks for big `learn` runs, then chose this recommendation: "i like your suggestion".
 - Rejected: Blocks only for big `learn` runs (see Why). One item holding the whole list (check 0.4). The 10,000 figure as a store target: it is a speed goal for matching, and the store doesn't need to reach it unless the measurements allow it.
-- Evidence: findings 0.4: DPAPI round trip ok at 1 MB; `security -i` and `secret-tool` ok at 1 KB, failing at 64 KB. Weak spot: no timing yet for reading many pieces on macOS or Linux, and a slow read would slow every session start.
+- Evidence: findings 0.4: DPAPI round trip ok at 1 MB; `security -i` and `secret-tool` ok at 1 KB, failing at 64 KB. Open point: no timing yet for reading many pieces on macOS or Linux, and a slow read would slow every session start.
 
 ## D-037: `personal_data` is built in step 5
 - Date / Step: 2026-10-31 / 2        Status: accepted
 - Decision: Plan step 5 builds the setting for emails and phone numbers, off by default. Until then, step 3 shows "not available yet" when someone turns it on. Spec §2 no longer lists it as both a non-goal and an available setting.
 - Why: The setting was in the spec but in no step, so step 3 would have accepted `personal_data: on` and done nothing, which is the false comfort R-05 exists to prevent. Step 5 is where false alarms get tuned, and that is the hard part. The owner chose this option.
 - Rejected: Parking it in §23 (drops something organizations may ask for). Step 4 (ships before tuning, in the largest step).
-- Evidence: spec §2, §14. Weak spot: false alarms are unmeasured, and the false-alarm set is TypeScript sources, so step 5 also measures log-like text.
+- Evidence: spec §2, §14. Open point: false alarms are unmeasured, and the false-alarm set is TypeScript sources, so step 5 also measures log-like text.
 
 ## D-038: `kubernetes-secret-yaml` stays rejected
 - Date / Step: 2026-10-31 / 2        Status: accepted
@@ -627,7 +627,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Decision: Deny any write to the data and plugin folders. In Claude Code settings files, deny only a change to `disableAllHooks`, `allowManagedHooksOnly`, `hooks`, `enabledPlugins`, `secretShield` or `env.CLAUDE_CODE_SIMPLE`. Bash and PowerShell get a best-effort text check.
 - Why: Check 0.14: one setting silently turns both locks off, and spec §3 has injection in scope. The owner chose this option.
 - Rejected: Own files only (leaves the hole). Denying all settings writes (blocks ordinary edits).
-- Evidence: Findings 0.14; a real run stopped a Write of `disableAllHooks`; `tests/core-lock.test.ts`. Weak spot: a disguised shell command, in spec §22.
+- Evidence: Findings 0.14; a real run stopped a Write of `disableAllHooks`; `tests/core-lock.test.ts`. Open point: a disguised shell command, in spec §22.
 
 ## D-056: The resume block drops the next prompt
 - Date / Step: 2026-11-01 / 4        Status: accepted
