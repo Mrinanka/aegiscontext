@@ -2,7 +2,7 @@
 
 Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
-**Current focus:** Step 8 is in PR #9 into `develop`, with Audit 3's fixes (D-098) pushed to it. The owner runs `/security-review` and `/code-review high` on the PR, so it stays unticked until those are done. `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 8: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
+**Current focus:** Steps 0 to 8 are done. Step 8 merged into `develop` (PR #9) after `/security-review`, `/code-review high` and their fixes. Next is `v0.1.0-rc.2` (`docs/release-checklist.md`): the owner merges `develop` into `release`, makes the signing key and puts its fingerprint in `SECURITY.md` (D-094), then signs the tag on the tip of `release`. Then the hand checks and the two weeks of daily use, with the other "Before `v0.1.0`" items. `v0.1.0-rc.1` stays an unsigned draft release.
 
 ## Steps
 
@@ -16,7 +16,7 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 | 5 | Backup lock + tuning | `step-5` | ☑ |
 | 6 | Release + Audit 2 | `step-6` | ☑ |
 | 7 | Fixes before daily use (D-090) | `step-7` | ☑ |
-| 8 | Put secrets back + weekly CI + Audit 3 (D-095) | `step-8` | ☐ |
+| 8 | Put secrets back + weekly CI + Audit 3 (D-095) | `step-8` | ☑ |
 
 "Done when" for each step is in `docs/plan.md`, "The 7 steps".
 
@@ -25,7 +25,7 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 Bugs, unfinished bits and open questions. Features we chose not to build go in spec §23.
 
 - Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
-- Step 8 was shipped before Audit 3: the owner asked to raise the PR first and run `/security-review` and `/code-review high` on it. Scope is everything since `2f00d31`, not only the PR's diff. Fixes go on `step-8`. Audit 3's findings are fixed (D-098, pushed to PR #9 on 2026-11-03), and the audits have not been run again on the fixes: the owner asked to ship first and run them on the PR. The "could not restore" message is now shown every time (`warn` with `always`), as spec §10 says; the owner chose this over a per-file throttle or a spec change.
+- `npm run release:pack` refuses only when the output folder already holds archives for the same tag, so it overwrites another tag's `SHA256SUMS` in `dist/release`. Seen on 2026-11-03 with a trial rc.2 pack beside the local rc.1 files; the local rc.1 file was rebuilt. The release workflow packs in a fresh checkout, so a published release is not affected.
 - Put-back (step 8), the owner's call on 2026-11-03 (D-097): a broken managed block does not read as off. Managed `put_back: false`, `"Off"`, or a valid `off` beside any other bad managed value leaves `managedOff` false on a first load (scratch run), and a fallback takes the last good value, so a developer's or repo's `on` still counts. Only an error in `/redact doctor` says so.
 - Put-back (step 8): whether `$.state` is cleared by `/clear` is unknown (its docs say "for the session"), so the put-back note and the once-a-session notice may carry over. Check with the `/clear` hand check.
 - Put-back (step 8): a catch added by `keepHidden` reaches `$.state` at the next stored row, not at once, so a worker killed in between forgets it. Only a value the D-071 filter would drop depends on it.
@@ -340,3 +340,12 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 - Still unverified: whether `tool.call` gets the path as Claude wrote it or already expanded (2.1.316 has a `backfillObservableInput` step). The fix holds either way.
 - On this tree, Windows, uncommitted: `npm test` 1118 tests (1116 pass, 2 skipped, 0 fail); `claude plugin test ./plugin` 225 of 225; typecheck, `plugin:typecheck`, `plugin:build -- --check` and validate pass; `leak-test` 0 of 112; `leak-test:put-back` and `-off` 0 of 140 each; `leak-test:backup` 0 of 49; 0 network attempts.
 - Next: the owner's commit on `step-8`, pushed to PR #9; CI on three systems; then the merge.
+
+### 2026-11-03: step 8 done
+- The fixes went in as `3faa5e5`. PR #9's CI passed on the three systems (run 41647368904), and the owner merged it into `develop` (`4ecb427`). The owner ran `/security-review` and `/code-review high` on the final code. Step 8 is ticked.
+- `docs/release-checklist.md` "Before a release candidate", checked for `v0.1.0-rc.2`:
+  - Ticked: step 8 merged with its audits; spec §22 names the three `GUARDED_OPEN` doors; `leak-test:put-back` and `-off` green on the three systems; versions agree (`0.1.0` in `package.json`, `plugin.json` and `marker.ts`, CHANGELOG `0.1.0-rc.2`); `docs/tested-versions.md` and `docs/scores.md` say rc.2, and `npm run measure` passes; private vulnerability reporting says `enabled`, and `SECURITY.md`, `CODE_OF_CONDUCT.md` and the issue template link to it; a trial `npm run release:pack -- v0.1.0-rc.2` on the clean tree, both archives `OK` against its `SHA256SUMS`, then removed.
+  - `develop` green on the three systems with the org and guarded runs: the push run on `4ecb427` was still going when this was committed, so that line stays open until it, or this PR's CI, passes.
+  - The weekly run passed on `step-8` (`22b1f6e`). Its schedule only starts once `develop` is merged into `release`, so that line stays open.
+  - Left for the owner: the merge of `develop` into `release`, the GPG key and its fingerprint in `SECURITY.md`, and the signed tag.
+- The CHANGELOG's rc.2 "Fixed" now lists the code review fixes. The guard's path reading was also in rc.1, with default settings.
