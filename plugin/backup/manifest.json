@@ -33,7 +33,7 @@
     "core/log.js": "966bb149a6714c6921eeba9c10e32bb42111f002a4cb210ac2248d88518d7a31",
     "core/matcher.js": "1a2e0503754ff5e958dd2117dc36571cc68ab8e067780e0346883d263d651ed4",
     "core/outbound.js": "11631fcc97a0628cad04862f73fdcfb1a295d8235eb00f526ae752c4ae63b595",
-    "core/placeholder.js": "736eee551997e4f01c5ecd917d780dd857d7efbcae957e6c1b80ac6cf2cc5265",
+    "core/placeholder.js": "272e67cb71a704bf75d100e15608beec65bfb63ab39d61b49febe975e1391037",
     "core/protect.js": "fbec86a2ca0a3f66dd34d675eaf93e5a78a06ea2aee2a2869139610cb0dd9bc7",
     "core/session.js": "7cd18bc23b70172b60cc696d8f0a4680449a94dc7775a57c7d6513c985ef0a0f",
     "core/settings.js": "0776ea269a94b027e1f652b3d2186b72a412ecd467253e8abdb52762ec407da1",
