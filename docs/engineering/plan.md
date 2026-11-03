@@ -79,7 +79,7 @@ You don't need an organization to test Managed mode:
 
 This tests checks 0.2, 0.7 and the Managed-mode rows of spec 5.3 the way an organization would see them.
 
-**Delivers:** `docs/findings-step0.md` (each check: yes or no, Claude Code version, OS, how it was tested). Any "no" is applied to `spec.md` in the same step.
+**Delivers:** `docs/engineering/findings-step0.md` (each check: yes or no, Claude Code version, OS, how it was tested). Any "no" is applied to `spec.md` in the same step.
 
 ---
 

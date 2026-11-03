@@ -15,7 +15,7 @@ In all these cases the main lock is off. The backup lock, if installed as manage
 
 ## doctor says "some events are passed over this plugin"
 
-Claude Code's built-in guard routes instruction files, hook context, skill text, attachments and compaction summaries past a user-installed plugin on machines with managed settings or a managed MCP server file, or with a Team or Enterprise login. Nothing the plugin does can change that. Under `on_check_failure: hold` the plugin refuses every request, and says "this request was not sent". Ask your administrator for the organization install ([managed.md](managed.md)).
+Claude Code's built-in guard routes instruction files, hook context, skill text, attachments and compaction summaries past a user-installed plugin on machines with managed settings or a managed MCP server file, or with a Team or Enterprise login. A compaction summary is still caught afterwards: the resume check holds the next message, so the model is not sent it. Under `on_check_failure: hold` the plugin refuses every request, and says "this request was not sent". A user-installed plugin can't change the routing; the organization install does, so ask your administrator for it ([managed.md](managed.md)).
 
 ## doctor says the password store is missing or locked
 
@@ -23,7 +23,7 @@ Claude Code's built-in guard routes instruction files, hook context, skill text,
 - **macOS:** unlock the login Keychain.
 - **Windows:** needs PowerShell; check that `powershell` runs.
 
-Until it works, saved secrets are not being hidden by value (shapes and labels still are).
+Until it works, shapes and labels are still hidden; saved secrets are not hidden by value.
 
 ## doctor says Claude Code is not on the tested list
 

@@ -15,3 +15,7 @@ Thumbs.db
 
 # Written by Claude Code beside a loaded mod
 plugin/tsconfig.json
+
+# The promo video project (Remotion). Kept local for now; it may move to its own repo later.
+# Its outputs for the README are in docs/media/.
+promo/

@@ -14,14 +14,14 @@ This is a community project with no support contract. Reports are read on a best
 
 ## What counts
 
-- A secret that reaches the model through a door the docs say is covered (`docs/spec.md` sections 6 and 22 list the doors and the known limits).
+- A secret that reaches the model through a door the docs say is covered (`docs/engineering/spec.md` sections 6 and 22 list the doors and the known limits).
 - A secret written to disk unencrypted by the tool (logs, reports, temp files).
 - Any network traffic from the tool. It never contacts the network.
 - A way for a prompt, file or web page to make Claude turn the tool off (spec section 17).
 
 ## What does not
 
-The limits in `docs/spec.md` section 22 are known and documented, for example a secret with no known shape, content sent before the tool was installed, and Claude Code's own disk records. They are not vulnerabilities, but a better way to close one is welcome as an ordinary issue.
+The limits in `docs/engineering/spec.md` section 22 are known and documented, for example a secret with no known shape, content sent before the tool was installed, and Claude Code's own disk records. They are not vulnerabilities, but a better way to close one is welcome as an ordinary issue.
 
 ## Release signing
 

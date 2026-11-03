@@ -1,4 +1,4 @@
-// The published targets (plan step 5 item 9, Release rules). `docs/targets.md` shows the same numbers, a test
+// The published targets (plan step 5 item 9, Release rules). `docs/engineering/targets.md` shows the same numbers, a test
 // keeps the two together, and `npm run measure` fails when one is missed. Set by the owner on 2026-11-01 from
 // the measurements in that file, with headroom for CI machines that were not measured. Any change to a number
 // goes in the changelog.

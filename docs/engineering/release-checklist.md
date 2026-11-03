@@ -10,7 +10,7 @@ If a macOS job is cancelled with "The job was not acquired by Runner of type hos
 
 - [x] Step 8 is merged and its audits are done (D-095).
 - [x] `develop` is green in CI on the three systems, including `leak-test:org`, `leak-test:org-observe`, `leak-test:guarded`, `leak-test:guarded-hold` and `leak-test:guarded-login`.
-- [x] `docs/spec.md` section 22 lists the doors `leak-test:guarded` measured (`GUARDED_OPEN` in `tools/leak-test/org.ts`).
+- [x] `docs/engineering/spec.md` section 22 lists the doors `leak-test:guarded` measured (`GUARDED_OPEN` in `tools/leak-test/org.ts`).
 - [ ] The weekly run (`.github/workflows/weekly.yml`) has passed at least once on `step-8` (its `push` trigger) and, once `develop` is merged into `release`, runs on its schedule. `schedule` and `workflow_dispatch` only work for the default branch, and GitHub switches a scheduled workflow off after 60 days with no repository activity: re-enable it from the Actions tab if it was.
 - [x] `leak-test:put-back` and `leak-test:put-back-off` are green in CI on the three systems.
 - [x] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts`, `CHANGELOG.md`.

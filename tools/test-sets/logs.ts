@@ -6,7 +6,7 @@
 // beside a word like "token", "key" or "password". Hiding any of it counts as a false alarm.
 //
 // WRITTEN BY THE SAME PERSON WHO TUNED THE CHECKER AGAINST IT, so it can flatter the tuning: it is a first set,
-// not a verdict (docs/targets.md says so). Built from a fixed seed, so each run measures the same bytes.
+// not a verdict (docs/engineering/targets.md says so). Built from a fixed seed, so each run measures the same bytes.
 
 import { pick, seededSource, type Source } from './fakes.ts'
 
