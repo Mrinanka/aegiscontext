@@ -152,6 +152,18 @@ describe('CI (plan.md Ground rules, spec §4)', () => {
     }
   });
 
+  test('CI runs on a pull request into develop or release, and on a push (a merge) to them, not on every branch push', () => {
+    const yaml = readText('.github', 'workflows', 'ci.yml');
+    const on = /^on:\n((?:[ \t]+.*\n|\n)*)/m.exec(yaml)?.[1] ?? '';
+    const branchesOf = (event: string): string[] => {
+      const m = new RegExp(`^  ${event}:\\n    branches: \\[([^\\]]*)\\]`, 'm').exec(on);
+      return m ? (m[1] as string).split(',').map((b) => b.trim().replace(/^['"]|['"]$/g, '')).sort() : [];
+    };
+    assert.deepEqual(branchesOf('push'), ['develop', 'release'], 'push runs only for develop and release');
+    assert.deepEqual(branchesOf('pull_request'), ['develop', 'release'], 'a pull request runs only into develop or release');
+    assert.match(on, /^  workflow_call:/m, 'the release workflow still calls CI');
+  });
+
   test('a push and its pull request share one CI run; a fork with the same branch name does not', () => {
     const group = /^\s+group:\s*(.+)$/m.exec(readText('.github', 'workflows', 'ci.yml'))?.[1] ?? '';
     assert.ok(group.includes('github.head_ref || github.ref_name'), 'a PR and a push must name the branch the same way');

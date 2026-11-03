@@ -1,17 +1,20 @@
 name: CI
 
+# A pull request into develop or release, and a push (a merge) to them (D-099). A push to a step branch runs nothing,
+# so its PR's checks are never cancelled by a second run of the same names, which blocked the merge.
 on:
   push:
-    branches: ['**']
+    branches: [develop, release]
   pull_request:
+    branches: [develop, release]
   # The release workflow runs the whole of CI on a tag before it makes a draft release.
   workflow_call:
 
 permissions:
   contents: read
 
-# A push to a branch with an open PR triggers both events; keep only the newest run. The group names the repo and the
-# branch the same way for both events (a PR number would never match a push), and a fork's branch stays apart.
+# Keep only the newest run of a branch. The group names the repo and the branch the same way for both events (a PR
+# number would never match a push), and a fork's branch stays apart.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true

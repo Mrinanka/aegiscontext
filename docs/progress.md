@@ -161,6 +161,7 @@ Platform and tooling facts learned so far (from the old `lessons.md`).
 - A signed tag does not cover the archives. A `.tar.gz` rebuilt from the tag matches `SHA256SUMS`, which ties them together; a `.zip` does not.
 - Claude Code's Edit error for text that matches more than once ends with `String: <old_string>`, the same as "not found" (2.1.316 binary), so either failure echoes what the hook passed in.
 - `claude -p "/redact ..."` with no mock retries the API for minutes and prints no result. To see a command's answer in a real run, point it at the kit's mock.
+- A cancelled check with the name of a required check blocks the merge and puts ✗ on the commit, even when another run of the same name passed. Since D-099, CI runs only on PRs into and pushes to `develop` and `release`, so a step branch's push no longer makes a second, cancelled run; a wip push before the PR exists gets no CI.
 - Windows PowerShell 5.1 has no `[Text.Encoding]::Latin1`, so searching Claude Code's binary for a message fails there. Use a Node script that reads it as `latin1`.
 
 ## Session notes

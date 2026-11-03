@@ -124,6 +124,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-096 | Put secrets back: an optional flag, off by default, into a file that already holds the value | accepted | 8 | 1, 2, 5.1, 9, 10, 14, 15, 22, 23 |
 | D-097 | A broken managed block does not turn put-back off | accepted | 8 | 10 |
 | D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
+| D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
 
 ## Entry template (short form, from D-018 on)
 
@@ -949,6 +950,14 @@ Tiny clarifications go under **Minor** at the bottom.
   - Unit runs of `isProtected`, `isSettingsFile` and `shellChangesProtected`: each audit spelling passed before the fix.
   - Claude Code 2.1.316's path expansion, read in the pinned binary (`trim`, `~/`, `/c/`, `UnstablePathError`). `$.session.root()` doc (`claude-code.d.ts:2851`): "A shell `cd` during the session does not move it".
   - A scratch `claude -p` run against the kit's mock: an LF `old_string` matches a CRLF file and the file keeps CRLF; a CRLF `old_string` does not match.
+
+## D-099: CI runs on pull requests into, and pushes to, `develop` and `release` only
+- Date / Step: 2026-11-03 / 8        Status: accepted (the owner's choice: "ci should run on pr on develop/release and merge on develop and release").
+- Decision: `ci.yml` runs on `pull_request` into `develop` or `release`, on `push` to `develop` or `release` (merges), and through `workflow_call` from the release workflow. A push to a step branch runs no CI. The concurrency group is unchanged.
+- Why: a push to a branch with an open PR started a push run and a PR run in one concurrency group, and the PR run cancelled the push run. Its 10 cancelled checks have the names of `develop`'s 10 required checks, so PR #9's commit showed ✗ and the merge was blocked, even though the PR run passed.
+- Rejected: one concurrency group per event (both runs finish, but every push to a PR branch runs CI twice); keeping the workflow and rerunning the cancelled push run by hand after each push.
+- Consequence: a wip push to a step branch before its PR exists gets no CI. Open the PR, or push to it, to see CI.
+- Evidence: `develop`'s branch protection (`gh api .../branches/develop/protection`: 10 required contexts, `strict`); PR #9 `mergeStateStatus: BLOCKED` with run 41635323874 (pull_request) green and run 41635316122 (push) cancelled on `32929f5`; `tests/repo-setup.test.ts` "CI runs on a pull request into develop or release ...", which failed on `['**']` first.
 
 ---
 
