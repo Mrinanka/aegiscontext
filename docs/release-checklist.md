@@ -7,7 +7,7 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 `v0.1.0-rc.1` went through this list. These are for `v0.1.0-rc.2`.
 
 - [x] Step 8 is merged and its audits are done (D-095).
-- [ ] `develop` is green in CI on the three systems, including `leak-test:org`, `leak-test:org-observe`, `leak-test:guarded`, `leak-test:guarded-hold` and `leak-test:guarded-login`.
+- [x] `develop` is green in CI on the three systems, including `leak-test:org`, `leak-test:org-observe`, `leak-test:guarded`, `leak-test:guarded-hold` and `leak-test:guarded-login`.
 - [x] `docs/spec.md` section 22 lists the doors `leak-test:guarded` measured (`GUARDED_OPEN` in `tools/leak-test/org.ts`).
 - [ ] The weekly run (`.github/workflows/weekly.yml`) has passed at least once on `step-8` (its `push` trigger) and, once `develop` is merged into `release`, runs on its schedule. `schedule` and `workflow_dispatch` only work for the default branch, and GitHub switches a scheduled workflow off after 60 days with no repository activity: re-enable it from the Actions tab if it was.
 - [x] `leak-test:put-back` and `leak-test:put-back-off` are green in CI on the three systems.
@@ -16,7 +16,7 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 - [x] Private vulnerability reporting is on (`gh api repos/Mrinanka/aegiscontext/private-vulnerability-reporting` says `enabled`): `SECURITY.md`, `CODE_OF_CONDUCT.md` and the issue template link to it.
 - [x] `npm run release:pack` on a clean tree (see below).
 - [ ] The merge of `develop` into `release`; `release` is the repository's default branch.
-- [ ] A GPG signing key exists, its public key is on the GitHub profile, and its fingerprint is in `SECURITY.md` ("Signing a tag", below). The fingerprint change goes in before the tag.
+- [x] A GPG signing key exists, its public key is on the GitHub profile, and its fingerprint is in `SECURITY.md` ("Signing a tag", below). The fingerprint change goes in before the tag.
 - [ ] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v <tag>` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
 
 ## Before `v0.1.0`

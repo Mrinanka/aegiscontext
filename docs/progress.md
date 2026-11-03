@@ -349,3 +349,8 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
   - The weekly run passed on `step-8` (`22b1f6e`). Its schedule only starts once `develop` is merged into `release`, so that line stays open.
   - Left for the owner: the merge of `develop` into `release`, the GPG key and its fingerprint in `SECURITY.md`, and the signed tag.
 - The CHANGELOG's rc.2 "Fixed" now lists the code review fixes. The guard's path reading was also in rc.1, with default settings.
+
+### 2026-11-03: signing key for `v0.1.0-rc.2` (D-094)
+- The owner merged PR #10 (`eddaf88`). `develop`'s push run on `4ecb427` (41650577312) passed on the three systems with the org, org-observe, guarded, guarded-hold and Team and Enterprise login runs. "Every door" is skipped on Linux by design (`ci.yml:84`) and passed on Windows and macOS. The weekly run passed on `develop` too (41650577592). Checklist line ticked.
+- The owner made the key in Git Bash's GnuPG 2.4.7: Ed25519, sign only, `Mrinanka <mrinanka.dhar@gmail.com>`, expires 2028-11-02. Its public key is on the GitHub profile: `https://github.com/Mrinanka.gpg` serves it with the same fingerprint, and the GitHub API lists it with `can_sign` and the email verified. `git config --global user.signingkey` is set. The owner backed up the private key and the revocation file offline and removed the exported copy from the disk. The fingerprint is in `SECURITY.md`. Checklist line ticked.
+- Left for the owner: the merge of `develop` into `release`, then the signed tag on its tip.
