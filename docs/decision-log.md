@@ -123,6 +123,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-095 | Step 8: put secrets back and the weekly run; `v0.1.0-rc.2` moves to after it | accepted | 8 | none |
 | D-096 | Put secrets back: an optional flag, off by default, into a file that already holds the value | accepted | 8 | 1, 2, 5.1, 9, 10, 14, 15, 22, 23 |
 | D-097 | A broken managed block does not turn put-back off | accepted | 8 | 10 |
+| D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -933,6 +934,21 @@ Tiny clarifications go under **Minor** at the bottom.
 - Why: Offered to the owner with this reason, and chosen: no spec change, and a broken managed block behaves the same for every setting.
 - Rejected: Reading a broken managed block as off, like a broken choice file. It would stop an organization's typo leaving put-back allowed, but it also stops a developer who wanted put-back until the block is fixed, and it adds a rule for one setting.
 - Evidence: a scratch run of `resolveSettings` with managed `put_back: false`, `"Off"`, and a valid `off` beside a bad `mode`: `managedOff` false each time, and a developer's `on` stayed on. `src/core/settings.ts`, read 2026-11-03.
+
+## D-098: Audit 3 fixes: the guard after Read, self-protection reads paths as Claude Code does, put-back fails off
+- Date / Step: 2026-11-03 / 8        Status: accepted (the owner approved the plan, which named these spec changes).
+- Decision:
+  - The overwrite guard also counts a known placeholder whose value, with Read's line numbers and `\r` taken out, is a lost multi-line secret.
+  - Self-protection expands a path as Claude Code does (trim, `~`, `/c/...`, relative to the working folder). It refuses a settings change it can't check (unreadable, over 4 MB, an Edit whose text isn't in the file as written), and refuses when its own check fails.
+  - A shell command that names the tool's folders through `~`, `$HOME`, `$env:USERPROFILE`, `%USERPROFILE%`, `$CLAUDE_CONFIG_DIR` or `/c/...` is refused.
+  - Put-back: `--here` is the project root (`$.session.root()`), not `cwd()`. A decision that throws is off, and the guard still runs. A fallback to the last good settings takes `repo` from this run's project sources only, and the store never keeps it. An Edit is matched as Claude Code reads a CRLF file. The choice file stays under 64 KB, and a save over a broken one says so.
+- Why: Audit 3 found each of these. The suggested guard fix ("count any known same-kind placeholder") would break `tests/core-lock.test.ts` "the placeholder of a different known value of the same kind does not count", so the narrower match was chosen.
+- Rejected: Stripping trailing spaces and dots from each path part on Windows. A scratch Node write showed `settings.json ` becomes its own file and a `.claude ` folder part does not resolve, so Win32's stripping does not apply. The trailing-space bypass is Claude Code's own `trim()`. Restoring a Read-seen multi-line value: its placeholder stands for text with line numbers in it; recorded in spec §22 instead.
+- Evidence (2026-11-03):
+  - Scratch `checkOverwrite` runs: Read-shaped view not blocked, cat-shaped view blocked.
+  - Unit runs of `isProtected`, `isSettingsFile` and `shellChangesProtected`: each audit spelling passed before the fix.
+  - Claude Code 2.1.316's path expansion, read in the pinned binary (`trim`, `~/`, `/c/`, `UnstablePathError`). `$.session.root()` doc (`claude-code.d.ts:2851`): "A shell `cd` during the session does not move it".
+  - A scratch `claude -p` run against the kit's mock: an LF `old_string` matches a CRLF file and the file keeps CRLF; a CRLF `old_string` does not match.
 
 ---
 

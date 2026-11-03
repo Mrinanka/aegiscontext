@@ -109,7 +109,11 @@ export function changeChoice(c: Choice, o: { value: Switch; here?: string }): Ch
   if (o.here === undefined) return { ...c, all: o.value }
   const entries = Object.entries(c.folders ?? {}).filter(([k]) => k !== o.here)
   entries.push([o.here, o.value])
-  return { ...c, folders: Object.fromEntries(entries.slice(-MAX_FOLDERS)) }
+  let kept = entries.slice(-MAX_FOLDERS)
+  // Oldest first out until the file fits: an oversized file reads as off (parseChoice).
+  const fits = (list: [string, Switch][]): boolean => serializeChoice({ ...c, folders: Object.fromEntries(list) }).length <= MAX_CHOICE_CHARS
+  while (kept.length > 1 && !fits(kept)) kept = kept.slice(Math.max(1, Math.floor(kept.length / 10)))
+  return { ...c, folders: Object.fromEntries(kept) }
 }
 
 /** What the choice says for the all-projects switch and for this folder (an exact match, not its subfolders). */
@@ -204,8 +208,11 @@ export function restoreInput(r: RestoreRedactor, c: RestoreCall): RestoreResult 
     return ok
   }
 
-  /** Restores a text, spending `budget` (copies left per tag). Returns the text and the copies restored per tag. */
-  const restoreText = (text: string, budget: Map<string, number>): { text: string; used: Map<string, number> } => {
+  /**
+   * Restores a text, spending `budget` (copies left per tag). Returns the text and the copies restored per tag. With
+   * `lf`, a value's CRLF goes in as LF, the way Claude Code reads a CRLF file when it matches an Edit.
+   */
+  const restoreText = (text: string, budget: Map<string, number>, lf = false): { text: string; used: Map<string, number> } => {
     const used = new Map<string, number>()
     let out = ''
     let cursor = 0
@@ -217,7 +224,8 @@ export function restoreInput(r: RestoreRedactor, c: RestoreCall): RestoreResult 
       if (!info || !info.hide || info.sources.size !== 1 || left <= 0 || !keep(tag, (LABEL.exec(ph) as RegExpExecArray)[1] as string)) continue
       budget.set(tag, left - 1)
       used.set(tag, (used.get(tag) ?? 0) + 1)
-      out += text.slice(cursor, s) + (info.sources.values().next().value as string)
+      const source = info.sources.values().next().value as string
+      out += text.slice(cursor, s) + (lf ? source.replace(/\r\n/g, '\n') : source)
       cursor = e
     }
     return { text: out + text.slice(cursor), used }
@@ -232,14 +240,17 @@ export function restoreInput(r: RestoreRedactor, c: RestoreCall): RestoreResult 
     return restored === 0 ? unchanged() : { input: { ...c.input, content: done.text }, restored, left: total - restored, complete: true }
   }
 
-  // Edit: the old text must be in the file once it is restored, or the input stays as Claude wrote it.
+  // Edit: the old text must be in the file once it is restored, or the input stays as Claude wrote it. Claude Code
+  // matches a CRLF file as LF (and keeps its endings on save), so an old text holding CRLF would fail there.
   if (!strings.includes('old_string')) return unchanged()
-  const old = restoreText(c.input.old_string as string, budget())
-  if (old.text === '' || !c.disk.includes(old.text)) return unchanged()
+  const crlf = c.disk.includes('\r\n')
+  const view = crlf ? c.disk.replace(/\r\n/g, '\n') : c.disk
+  const old = restoreText(c.input.old_string as string, budget(), crlf)
+  if (old.text === '' || (crlf && old.text.includes('\r\n')) || !view.includes(old.text)) return unchanged()
   // Without replace_all the tool refuses text that matches twice, and its error repeats the text (D-096).
-  if (c.input.replace_all !== true && c.disk.indexOf(old.text) !== c.disk.lastIndexOf(old.text)) return unchanged()
+  if (c.input.replace_all !== true && view.indexOf(old.text) !== view.lastIndexOf(old.text)) return unchanged()
   // The new text may hold no more copies of a value than the old text did.
-  const next = strings.includes('new_string') ? restoreText(c.input.new_string as string, new Map(old.used)) : { text: undefined, used: new Map<string, number>() }
+  const next = strings.includes('new_string') ? restoreText(c.input.new_string as string, new Map(old.used), crlf) : { text: undefined, used: new Map<string, number>() }
   const restored = sum(old.used) + sum(next.used)
   if (restored === 0) return unchanged()
   return {

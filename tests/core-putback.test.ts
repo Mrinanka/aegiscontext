@@ -131,6 +131,15 @@ test('changeChoice keeps the folder list from growing without bound', () => {
   assert.deepEqual(choiceFacts(c, '/f/1999', false).here, 'on', 'the newest stay')
 })
 
+test('changeChoice keeps the file under 64 KB even with long folder paths, so it never makes itself unreadable', () => {
+  let c = {}
+  for (let i = 0; i < 600; i++) c = changeChoice(c, { value: 'on', here: `/projects/${'deep/'.repeat(30)}${i}` })
+  const text = serializeChoice(c)
+  assert.ok(text.length <= 65_536, String(text.length))
+  assert.notEqual(parseChoice(text), undefined)
+  assert.equal(choiceFacts(c, `/projects/${'deep/'.repeat(30)}599`, false).here, 'on', 'the newest stay')
+})
+
 test('--here matches the folder exactly, not its subfolders, and ignores slash style and case where the system does', () => {
   const c = changeChoice({}, { value: 'on', here: folderKey('C:\\Work\\App\\', true) })
   assert.equal(choiceFacts(c, 'c:/work/app', true).here, 'on')
@@ -399,6 +408,54 @@ test('in a file holding the value twice, text that matches once is restored', ()
   assert.equal(out.input.old_string, `a: ${GH}`)
   assert.equal(out.input.new_string, `a: ${GH}2`)
   assert.equal(out.restored, 2)
+})
+
+// Claude Code 2.1.316 matches an Edit against the file with CRLF read as LF, and keeps the file's endings when it
+// writes; an old_string holding CRLF does not match a CRLF file (scratch run against the pinned binary, Audit 3).
+
+test('CRLF file: a two-line Edit written with LF is restored, in LF, as Claude Code will match it', () => {
+  const r = make()
+  const disk = `name: demo\r\ntoken: ${GH}\r\nport: 1\r\n`
+  const lines = seen(r, disk).split('\r\n')
+  const old = `${lines[0]}\n${lines[1]}`
+  const out = edit(r, disk, old, old.replace('token', 'api_token'))
+  assert.equal(out.input.old_string, `name: demo\ntoken: ${GH}`)
+  assert.equal(out.input.new_string, `name: demo\napi_token: ${GH}`)
+  assert.equal(out.restored, 2)
+})
+
+test('CRLF file: a multi-line value is restored with LF inside, never CRLF, so the Edit matches and no error echoes it', () => {
+  const r = make()
+  const key = fake('private-key').value
+  const disk = ['name: app', 'key: |', ...key.split('\n').map(l => `  ${l}`), 'port: 8080', ''].join('\r\n')
+  const view = seen(r, disk)
+  const ph = tagsOf(view)[0] as string
+  const old = `key: |\n  ${ph}\nport: 8080`
+  const out = edit(r, disk, old, old.replace('8080', '9090'))
+  assert.equal(out.restored, 2)
+  const sent = out.input.old_string as string
+  assert.equal(sent.includes('\r'), false)
+  assert.equal((out.input.new_string as string).includes('\r'), false)
+  assert.ok(disk.replace(/\r\n/g, '\n').includes(sent), 'the restored text is in the file as Claude Code reads it')
+})
+
+test('CRLF file: an old_string holding CRLF stays as Claude wrote it, because Claude Code would not match it', () => {
+  const r = make()
+  const disk = `name: demo\r\ntoken: ${GH}\r\n`
+  const lines = seen(r, disk).split('\r\n')
+  const input = { file_path: '/p/app.yaml', old_string: `${lines[0]}\r\n${lines[1]}`, new_string: `${lines[0]}\r\n${lines[1]}2` }
+  const out = restoreInput(r, { tool: 'Edit', file: '/p/app.yaml', disk, input, deadline: dl() })
+  assert.equal(out.restored, 0)
+  assert.equal(out.input, input)
+})
+
+test('CRLF file: text that matches twice once CRLF is read as LF stays as Claude wrote it', () => {
+  const r = make()
+  const disk = `a\r\nb: ${GH}\r\na\r\nb: ${GH}\r\n`
+  const ph = tagsOf(seen(r, disk))[0] as string
+  const input = { file_path: '/p/app.yaml', old_string: `a\nb: ${ph}`, new_string: `a\nb: ${ph}2` }
+  const out = restoreInput(r, { tool: 'Edit', file: '/p/app.yaml', disk, input, deadline: dl() })
+  assert.equal(out.restored, 0)
 })
 
 test('an Edit with an empty old_string is left alone', () => {

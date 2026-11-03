@@ -34,7 +34,7 @@ It blocks a prompt that holds a secret whole, checks a tool's call before it run
 
 **We recommend keeping this off.** It exists for one job: Claude only ever sees placeholders, so with it off Claude cannot reorganize a config file that holds secrets. The overwrite guard refuses the rewrite, and an Edit on a placeholder line fails. With it on, when Claude writes a file that **already holds** the value, the real value is put back as the file is saved. Claude still never sees the value.
 
-- `/redact put-back` shows whether it is on and why. `/redact put-back on` or `off` is your choice for all projects; add `--here` for the current folder only (an exact match, not its subfolders). Claude cannot run these commands or write the choice file.
+- `/redact put-back` shows whether it is on and why. `/redact put-back on` or `off` is your choice for all projects; add `--here` for this project's folder only (the folder the session started in or moved to with `/cd`; a shell `cd` does not change it; an exact match, not its subfolders). Claude cannot run these commands or write the choice file.
 - It restores only into a file that already holds the value, only for Write and Edit, and never more copies of a value than the file had. A new file, a copy beyond that limit, or a value the file does not hold keeps its placeholder.
 - The note that tells Claude about it is added when a session starts. If you turn it on in the middle of a conversation, restoring starts at once and the note waits for the next new session.
 - It restores nothing in `observe` mode, and the backup lock never restores.

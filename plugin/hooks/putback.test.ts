@@ -15,6 +15,12 @@ type Options = {
   files?: Record<string, string>
   noSurfaces?: boolean
   choice?: string
+  /** Where a shell `cd` took the session; the project root stays at work(). */
+  cwd?: string
+  /** `$.session.root()` fails, so the put-back decision can't be made. */
+  rootFails?: boolean
+  /** The last good settings an earlier version kept in `$.store`. */
+  lastGood?: unknown
 }
 
 let posix = false
@@ -47,7 +53,11 @@ function world(on: On, o: Options = {}): World {
   on('ui.open', () => ({ value: { isPlaced: true } }))
   mock.env(on, { CLAUDE_CONFIG_DIR: cfg(), OS: 'Windows_NT', PATH: '' })
   on('session.id', () => ({ value: 'sess-0003' }))
-  on('session.cwd', () => ({ value: work().slice(0, -1) }))
+  on('session.cwd', () => ({ value: o.cwd ?? work().slice(0, -1) }))
+  on('session.root', () => {
+    if (o.rootFails) throw new Error('no root')
+    return { value: work().slice(0, -1) }
+  })
   on('session.surfaces', () => ({ value: o.noSurfaces ? [] : ['terminal'] }))
   on('session.version', () => ({ value: { version: '2.1.316', base: '2.1.316', builtAt: 'x' } }))
   on('session.messages', () => ({ value: [] }))
@@ -76,7 +86,7 @@ function world(on: On, o: Options = {}): World {
     return { value: undefined }
   })
   on('ui.status', () => ({ value: undefined }))
-  const store = new Map<string, unknown>()
+  const store = new Map<string, unknown>(o.lastGood === undefined ? [] : [['lastGood', o.lastGood]])
   on('store.get', (_$, e) => ({ value: store.get(e.key) }))
   on('store.set', (_$, e) => {
     store.set(e.key, e.value)
@@ -293,6 +303,20 @@ test('R-11 exception: a value that cannot be restored is replaced by its placeho
   noFake(w)
 })
 
+test('spec §10: every save that erases a real secret says so on screen, not only the first three', async ($, on) => {
+  const files = [1, 2, 3, 4, 5].map(i => work(`app${i}.yaml`))
+  const w = world(on, { files: Object.fromEntries(files.map(f => [f, `token: ${FAKE}\n`])), choice: '{"all":"on"}' })
+  const lost = '[REDACTED:GITHUB_PAT ...ZxCv #aaaaaaaaaaaaa]'
+  const shown = (): number => w.ui.filter(l => l.includes('could not restore')).length
+  for (const file of files) {
+    const before = shown()
+    await $.tool.call(write(file, `token: ${lost}\n`))
+    expect(shown()).toBeGreaterThan(before)
+  }
+  expect(w.received.length).toBe(5)
+  noFake(w)
+})
+
 test('the same lost secret is still refused with put-back off', async ($, on) => {
   const file = work('app.yaml')
   const w = world(on, { files: { [file]: `token: ${FAKE}\n` } })
@@ -327,6 +351,81 @@ test('a restored value is hidden again if it shows up later', async ($, on) => {
   await $.tool.call(write(file, `password: ${ph}\n`))
   await $.session.append({ door: 'tool-result', origin: { kind: 'tool', tool: 'Bash' }, uuid: 'u-3', message: { type: 'user', role: 'user', content: [{ type: 'tool_result', tool_use_id: 't3', content: `echo ${'Summer' + 'Rainfall'}` }] } } as never)
   expect(stored(w).includes('SummerRainfall')).toBe(false)
+})
+
+// ---- when the decision fails, or the folder moves (Audit 3) ---------------------------------------------
+
+test('R-18: a shell cd does not undo --here; the choice is for the project root', async ($, on) => {
+  const file = work('app.yaml')
+  const key = posix ? '/work' : 'd:/work'
+  const w = world(on, { files: { [file]: `token: ${FAKE}\n` }, choice: JSON.stringify({ all: 'on', folders: { [key]: 'off' } }), cwd: work('sub') })
+  const ph = await readIt($, w, file)
+  expect(typeof (await $.tool.call(write(file, `token: ${ph}\n`))).deny).toBe('string')
+  expect(w.received).toEqual([])
+  expect(await redact($, 'put-back')).toContain('this folder')
+})
+
+test('--here saves the project root, not where a shell cd went', async ($, on) => {
+  const w = world(on, { cwd: work('sub') })
+  await redact($, 'put-back off --here')
+  const saved = JSON.parse(w.files[CHOICE()] as string) as { folders: Record<string, string> }
+  expect(Object.keys(saved.folders)).toEqual([posix ? '/work' : 'd:/work'])
+})
+
+test('R-18: a put-back decision that fails reads as off, and the guard still refuses a lost secret', async ($, on) => {
+  const file = work('app.yaml')
+  const w = world(on, { files: { [file]: `token: ${FAKE}\n` }, rootFails: true })
+  const ph = await readIt($, w, file)
+  expect(typeof (await $.tool.call(write(file, `token: ${ph}\n`))).deny).toBe('string')
+  expect(w.received).toEqual([])
+})
+
+test('a put-back decision that fails does not stop a harmless new file under hold', async ($, on) => {
+  const w = world(on, { rootFails: true, settings: { on_check_failure: 'hold' } })
+  const out = await $.tool.call(write(work('new.txt'), 'hello\n'))
+  expect(out.deny).toBe(undefined)
+  expect(w.received.length).toBe(1)
+})
+
+test('broken user settings with last good settings from rc.1 (no put_back) still guard the file', async ($, on) => {
+  const file = work('app.yaml')
+  const rc1 = { mode: 'enforce', personal_data: 'off', outbound: 'block', on_check_failure: 'allow', media: 'drop', hints: 'on', notices: 'on', rules: { off: [], custom: [], actions: {} }, allow: [], secret_files: ['.env', '.env.*'], log: { days: 7 }, locked: [] }
+  const w = world(on, { files: { [file]: `token: ${FAKE}\n` }, settings: { mode: 42 }, lastGood: rc1 })
+  const ph = await readIt($, w, file)
+  expect(typeof (await $.tool.call(write(file, `token: ${ph}\n`))).deny).toBe('string')
+  expect(w.received).toEqual([])
+})
+
+test("broken user settings do not carry another project's on into this one", async ($, on) => {
+  const file = work('app.yaml')
+  // The last good settings were kept while a project that says on was open.
+  const good = { mode: 'enforce', personal_data: 'off', outbound: 'block', on_check_failure: 'allow', media: 'drop', hints: 'on', notices: 'on', rules: { off: [], custom: [], actions: {} }, allow: [], secret_files: ['.env', '.env.*'], log: { days: 7 }, locked: [], put_back: { managedOff: false, repo: 'on' } }
+  const w = world(on, { files: { [file]: `token: ${FAKE}\n` }, settings: { mode: 42 }, lastGood: good })
+  const ph = await readIt($, w, file)
+  expect(typeof (await $.tool.call(write(file, `token: ${ph}\n`))).deny).toBe('string')
+  expect(await redact($, 'put-back')).toContain('the default')
+})
+
+test('"put-back on" that stays off does not say restoring starts', async ($, on) => {
+  world(on, { policy: { aegisContext: { put_back: 'off' } } })
+  const said = await redact($, 'put-back on')
+  expect(said).toContain('It stays off for now')
+  expect(said.includes('Restoring starts now')).toBe(false)
+})
+
+test('"put-back off" that stays on because of --here says so', async ($, on) => {
+  const key = posix ? '/work' : 'd:/work'
+  world(on, { choice: JSON.stringify({ folders: { [key]: 'on' } }) })
+  const said = await redact($, 'put-back off')
+  expect(said).toContain('It stays on for now')
+  expect(said).toContain('this folder')
+})
+
+test('a save over a choice file that could not be read says the earlier choices are gone', async ($, on) => {
+  const w = world(on, { choice: '{not json' })
+  const said = await redact($, 'put-back off --here')
+  expect(said).toContain('could not be read')
+  expect(JSON.parse(w.files[CHOICE()] as string)).toBeTruthy()
 })
 
 // ---- who can change it -----------------------------------------------------------------------------------

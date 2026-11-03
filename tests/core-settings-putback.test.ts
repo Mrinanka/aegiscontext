@@ -82,6 +82,22 @@ test('a broken managed source falls back to the last good settings, put_back inc
   assert.equal(r.settings.put_back.managedOff, true)
 })
 
+test("a fallback to the last good settings takes the project's put_back from this run, not from the last good one", () => {
+  const good = resolveSettings({ user: { hints: 'off' }, project: { put_back: 'on' } }).settings
+  assert.equal(good.put_back.repo, 'on')
+  const none = resolveSettings({ user: { mode: 42 } }, { lastGood: good })
+  assert.equal(none.settings.hints, 'off', 'the rest of the last good settings is kept')
+  assert.equal(none.settings.put_back.repo, undefined, "another project's on is not carried over")
+  const off = resolveSettings({ user: { mode: 42 }, project: { put_back: 'off' } }, { lastGood: good })
+  assert.equal(off.settings.put_back.repo, 'off', "this project's off is kept")
+})
+
+test('a fallback to last good settings from rc.1, which had no put_back, gives a whole put_back', () => {
+  const { put_back: _gone, ...rc1 } = resolveSettings({ user: { hints: 'off' } }).settings
+  const r = resolveSettings({ user: { mode: 42 } }, { lastGood: rc1 as typeof DEFAULTS })
+  assert.deepEqual(r.settings.put_back, { managedOff: false })
+})
+
 test('put_back does not change any other setting', () => {
   const a = resolveSettings({ project: { put_back: 'on' } }).settings
   const { put_back: _ignored, ...rest } = a

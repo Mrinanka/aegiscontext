@@ -6,7 +6,7 @@ import { osOf } from './backends.ts'
 import { now } from './lib/core/decoder.ts'
 import { applyEdit, checkOverwrite, placeholdersIn } from './lib/core/guard.ts'
 import { isChecked, outboundText, outboundVerdict } from './lib/core/outbound.ts'
-import { blockedSettingsChange, isProtected, isSettingsFile, shellChangesProtected, type Roots } from './lib/core/protect.ts'
+import { blockedSettingsChange, expandPath, isProtected, isSettingsFile, shellChangesProtected, type Roots } from './lib/core/protect.ts'
 import { restoreInput } from './lib/core/putback.ts'
 import type { Hit } from './lib/core/session.ts'
 import { writeLog } from './log-file.ts'
@@ -42,11 +42,23 @@ async function landing($: EngineInterface, path: string): Promise<string> {
   }
 }
 
-/** Each root in both spellings, because a path's landing has its links followed and the root may hold one. */
+/**
+ * Each root in both spellings, because a path's landing has its links followed and the root may hold one. With the
+ * home folder and the working folder, so a path is read the way Claude Code expands it (spec §17).
+ */
 export async function rootsOf($: EngineInterface): Promise<Roots> {
   const os = await osOf($)
   const own = [await dataDir($), $.plugin.root]
-  return { own: [...own, ...(await Promise.all(own.map(r => landing($, r))))], config: await configDir($), caseless: os !== 'linux' }
+  const home = (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME'))
+  return {
+    own: [...own, ...(await Promise.all(own.map(r => landing($, r))))],
+    config: await configDir($),
+    caseless: os !== 'linux',
+    ...(home ? { home } : {}),
+    cwd: await $.session.cwd(),
+    windows: os === 'windows',
+    configVar: Boolean(await $.env.get('CLAUDE_CONFIG_DIR')),
+  }
 }
 
 /** A file that is there and can't be read rejects: the caller's check has failed (R-12), it hasn't passed. */
@@ -61,24 +73,47 @@ async function logEvent($: EngineInterface, rt: Runtime, event: 'block' | 'warn'
 
 const named = (hits: readonly Hit[]): string => [...new Set(hits.map(h => `${h.label} #${h.tag}`))].slice(0, 5).join(', ')
 
-/** Self-protection stays on in observe mode (D-058): it is no detection, and it keeps a trial honest. */
-async function protect($: EngineInterface, rt: Runtime, tool: string, e: Input): Promise<string | undefined> {
-  const roots = await rootsOf($)
-  const path = pathOf(tool, e)
-  if (path) {
+const UNCHECKED_SETTINGS = "aegiscontext could not check that change to Claude Code's settings, so it was stopped. Change only the exact text in the file, or ask the user to make the change"
+
+/**
+ * The file a settings change would leave, or nothing when it can't be worked out: an Edit whose text is not in the
+ * file as written (curly quotes Claude Code may match, a placeholder put-back would restore), or a NotebookEdit.
+ */
+function settingsAfter(tool: string, before: string, e: Input): string | undefined {
+  if (tool === 'Write') return text(e.content)
+  if (tool !== 'Edit') return undefined
+  // An empty old_string writes new_string as the file.
+  if (text(e.old_string) === '') return text(e.new_string)
+  return applyEdit(before, text(e.old_string), text(e.new_string), e.replace_all === true)
+}
+
+/**
+ * Self-protection stays on in observe mode (D-058): it is no detection, and it keeps a trial honest. A path is read as
+ * Claude Code expands it (Audit 3). A check that fails refuses: self-protection never fails open.
+ */
+async function protect($: EngineInterface, tool: string, e: Input): Promise<string | undefined> {
+  const given = pathOf(tool, e)
+  const shell = tool === 'Bash' || tool === 'PowerShell'
+  if (!given && !shell) return undefined
+  try {
+    const roots = await rootsOf($)
+    if (shell) {
+      const what = shellChangesProtected(text(e.command), roots)
+      return what ? `that command would change ${what}. Only you can do that` : undefined
+    }
+    const path = expandPath(given as string, { home: roots.home ?? '~', cwd: roots.cwd ?? '', windows: roots.windows === true })
     const real = await landing($, path)
     if (isProtected(path, roots) || isProtected(real, roots)) return "that file belongs to aegiscontext, and Claude can't change it"
-    if (isSettingsFile(path, roots) || isSettingsFile(real, { ...roots, config: await landing($, roots.config) })) {
-      const before = await readIfThere($, path)
-      const after = tool === 'Write' ? text(e.content) : applyEdit(before, text(e.old_string), text(e.new_string), e.replace_all === true)
-      const key = after === undefined ? undefined : blockedSettingsChange(before, after)
-      if (key) return `that change touches ${key}, which could switch aegiscontext off. Only you can change it`
-    }
-  } else if (tool === 'Bash' || tool === 'PowerShell') {
-    const what = shellChangesProtected(text(e.command), roots)
-    if (what) return `that command would change ${what}. Only you can do that`
+    if (!isSettingsFile(path, roots) && !isSettingsFile(real, { ...roots, config: await landing($, roots.config) })) return undefined
+    const before = await readIfThere($, path)
+    if (before.length > MAX_FILE_CHARS) return UNCHECKED_SETTINGS
+    const after = settingsAfter(tool, before, e)
+    if (after === undefined) return UNCHECKED_SETTINGS
+    const key = blockedSettingsChange(before, after)
+    return key ? `that change touches ${key}, which could switch aegiscontext off. Only you can change it` : undefined
+  } catch {
+    return 'aegiscontext could not check whether that call changes its own files or settings, so it was stopped'
   }
-  return undefined
 }
 
 async function outbound($: EngineInterface, rt: Runtime, tool: string, e: Input): Promise<string | undefined> {
@@ -109,8 +144,15 @@ const shortName = (name: string): string => name.slice(Math.max(name.lastIndexOf
  */
 async function restore($: EngineInterface, rt: Runtime, tool: string, e: Input, deadline: number): Promise<{ changes?: Input; on: boolean }> {
   if (tool !== 'Write' && tool !== 'Edit') return { on: false }
-  const decision = await putBackNow($, rt)
-  await repoNotice($, rt, decision)
+  let decision
+  try {
+    decision = await putBackNow($, rt)
+    await repoNotice($, rt, decision)
+  } catch {
+    // R-18: off unless the table says on. A decision that can't be made is off, and the guard still runs.
+    await logEvent($, rt, 'notice', tool, 'put-back could not be decided, so it is off').catch(() => undefined)
+    return { on: false }
+  }
   if (!decision.on) return { on: false }
   const path = pathOf(tool, e)
   if (!path) return { on: true }
@@ -148,7 +190,7 @@ async function guard($: EngineInterface, rt: Runtime, tool: string, e: Input, de
   if (putBack && (tool === 'Write' || tool === 'Edit')) {
     const name = rt.redactor.redactText(path, { deadline: now() + 500 }).text
     await logEvent($, rt, 'warn', path, `put-back is on: ${out.tags.length} real value${out.tags.length === 1 ? '' : 's'} replaced by placeholders`, out.tags[0])
-    warn($, 'put-back-lost', `put-back could not restore ${out.tags.length} hidden value${out.tags.length === 1 ? '' : 's'}, so ${out.tags.length === 1 ? 'it was' : 'they were'} replaced by ${out.tags.length === 1 ? 'its placeholder' : 'placeholders'} in ${shortName(name)}. Git, or Claude Code's file backups, can bring ${out.tags.length === 1 ? 'it' : 'them'} back.`)
+    warn($, 'put-back-lost', `put-back could not restore ${out.tags.length} hidden value${out.tags.length === 1 ? '' : 's'}, so ${out.tags.length === 1 ? 'it was' : 'they were'} replaced by ${out.tags.length === 1 ? 'its placeholder' : 'placeholders'} in ${shortName(name)}. Git, or Claude Code's file backups, can bring ${out.tags.length === 1 ? 'it' : 'them'} back.`, { always: true })
     return undefined
   }
   const pass = await guardPass($)
@@ -179,7 +221,7 @@ export function clearGuardBlock(): void {
  */
 export async function beforeTool($: EngineInterface, tool: string, e: Input): Promise<{ deny: string } | { changes?: Input }> {
   const rt = await ready($)
-  const denied = (await protect($, rt, tool, e)) ?? (await outbound($, rt, tool, e))
+  const denied = (await protect($, tool, e)) ?? (await outbound($, rt, tool, e))
   if (denied !== undefined) return { deny: denied }
   const deadline = now() + BUDGET_MS
   const restored = await restore($, rt, tool, e, deadline)

@@ -2,7 +2,7 @@
 
 Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 
-**Current focus:** Step 8 is shipped as a PR into `develop`, with Audit 3 and two small fixes still open (Known issues), so it stays unticked until the audits are done. `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 8: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
+**Current focus:** Step 8 is in PR #9 into `develop`, with Audit 3's fixes (D-098) pushed to it. The owner runs `/security-review` and `/code-review high` on the PR, so it stays unticked until those are done. `v0.1.0-rc.1` is tagged on `release`, the default branch, as a draft release. No release until a signing key exists (D-094). After step 8: the owner makes the key, signs `v0.1.0-rc.2`, then the hand checks and the two weeks of daily use start, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`.
 
 ## Steps
 
@@ -25,12 +25,9 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 Bugs, unfinished bits and open questions. Features we chose not to build go in spec §23.
 
 - Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
-- Put-back (step 8), found by `/verify`, not fixed yet: on every Write or Edit, even with put-back off, `restore` in `plugin/hooks/tools.ts` calls `putBackNow`. A throw there skips the overwrite guard under `allow` (the `tool.call` `.catch` runs the tool as written), and on macOS and Linux `osOf` starts `uname` each time. Read in the code, not measured. Treat a failure as off, and call `osOf` only when the choice file has folders.
-- Put-back (step 8), found by `/verify`, not fixed yet: the "could not restore" message goes through `warn`, which shows a kind 3 times and then every 50th (`plugin/hooks/warn.ts:12`), so a later erased secret reaches only the log. Spec §10 says a message and the log say how many.
-- Step 8 was shipped before Audit 3, and with the two "not fixed yet" items below: the owner asked to raise the PR first and run `/security-review` and `/code-review high` on it. Scope is everything since `2f00d31`, not only the PR's diff. Fixes go on `step-8`.
+- Step 8 was shipped before Audit 3: the owner asked to raise the PR first and run `/security-review` and `/code-review high` on it. Scope is everything since `2f00d31`, not only the PR's diff. Fixes go on `step-8`. Audit 3's findings are fixed (D-098, pushed to PR #9 on 2026-11-03), and the audits have not been run again on the fixes: the owner asked to ship first and run them on the PR. The "could not restore" message is now shown every time (`warn` with `always`), as spec §10 says; the owner chose this over a per-file throttle or a spec change.
 - Put-back (step 8), the owner's call on 2026-11-03 (D-097): a broken managed block does not read as off. Managed `put_back: false`, `"Off"`, or a valid `off` beside any other bad managed value leaves `managedOff` false on a first load (scratch run), and a fallback takes the last good value, so a developer's or repo's `on` still counts. Only an error in `/redact doctor` says so.
 - Put-back (step 8): whether `$.state` is cleared by `/clear` is unknown (its docs say "for the session"), so the put-back note and the once-a-session notice may carry over. Check with the `/clear` hand check.
-- Put-back (step 8): `disk.includes(old_string)` is an exact match, so a multi-line Edit through a placeholder on a CRLF file is not restored if Claude's text has LF endings. It fails safe, as with put-back off. Whether Claude Code's Edit would have matched is from memory (unverified).
 - Put-back (step 8): a catch added by `keepHidden` reaches `$.state` at the next stored row, not at once, so a worker killed in between forgets it. Only a value the D-071 filter would drop depends on it.
 - `plugin/hooks/shield.test.ts` "R-12: a check that could not finish hides what it found and warns; hold withholds" takes about 4.3 s against the kit's 5 s limit on this machine, before and after step 8, and timed out once on a slow run. Not changed; watch it in CI.
 - Probe tests (`claude plugin test`) don't run in CI. The pinned `claude` now makes that possible; it wasn't added in step 1.
@@ -164,6 +161,7 @@ Platform and tooling facts learned so far (from the old `lessons.md`).
 - A signed tag does not cover the archives. A `.tar.gz` rebuilt from the tag matches `SHA256SUMS`, which ties them together; a `.zip` does not.
 - Claude Code's Edit error for text that matches more than once ends with `String: <old_string>`, the same as "not found" (2.1.316 binary), so either failure echoes what the hook passed in.
 - `claude -p "/redact ..."` with no mock retries the API for minutes and prints no result. To see a command's answer in a real run, point it at the kit's mock.
+- Windows PowerShell 5.1 has no `[Text.Encoding]::Latin1`, so searching Claude Code's binary for a message fails there. Use a Node script that reads it as `latin1`.
 
 ## Session notes
 
@@ -306,3 +304,27 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 ### 2026-11-03: step 8, ship
 - The owner asked to raise the PR before Audit 3 and before the two small fixes. Both stay open in Known issues, so the step is not ticked. D-097 records the broken managed block.
 - Next: the owner runs the audits on the PR; fixes go on `step-8`; then the merge, the GPG key and the rest of "Before a release candidate" in `docs/release-checklist.md`.
+
+### 2026-11-03: step 8, Audit 3 fixes
+- Each finding was reproduced or read first: scratch `checkOverwrite`, `isProtected`, `isSettingsFile` and `shellChangesProtected` runs; Claude Code 2.1.316's path expansion read in the pinned binary; `$.session.root()`'s doc. Fixed on `step-8`, tests first, as D-098: the guard after Read, self-protection's paths and fail-closed checks, home spellings in commands, `--here` on the project root, a failed decision as off, `lastGood` without another project's `repo`, the "stays off" message, CRLF Edits, and the choice file's size and replaced-file note.
+- The suggested guard fix would have broken an existing test ("the placeholder of a different known value of the same kind does not count"), so a narrower one went in. The plan's Windows trailing-space stripping was dropped: a scratch Node write showed Win32 doesn't strip there, and Claude Code's `trim()` explains the bypass.
+- Two new hook tests ("a put-back decision that fails ...") passed on the old code too, because it never called `root()`. The rc.1 `lastGood` test is the one that failed before the fix.
+- Measured: a scratch `claude -p` against the kit's mock showed an LF `old_string` matches a CRLF file (and the file keeps CRLF), and a CRLF one does not. In bypass mode against the mock, the 6 reported bypasses went through with the kit's empty plugin and were all refused with this one.
+- On this tree, Windows, uncommitted:
+  - `npm test`: 1111 tests, 0 fail, 2 skipped. `npm run measure` failed once inside the suite while the kit ran beside it, and passed alone.
+  - `claude plugin test ./plugin`: 220 of 220.
+  - Typecheck, `plugin:typecheck`, `plugin:build -- --check` and validate pass.
+  - `leak-test`: 0 of 112. `leak-test:put-back` and `-off`: 0 of 140 each. `tests/rewrite-real.test.ts`: 3 of 3.
+- Then the last open item: the "could not restore" message was throttled like every warning (3 times, then every 50th). With the owner's choice it is shown every time; a test with five lost saves failed on the 4th before the fix. `claude plugin test ./plugin`: 221 of 221.
+- Next: `/verify`, the audits again on these fixes, then the owner's commit or `/ship`. CI has not seen these changes.
+
+### 2026-11-03: step 8, `/verify` on the Audit 3 fixes
+- On this tree, Windows, uncommitted: `npm test` 1111 tests (1109 pass, 2 skipped, 0 fail); typecheck clean; validate passes; `claude plugin test ./plugin` 221 of 221; `tests/rewrite-real.test.ts` 3 of 3; `leak-test:put-back` and `-off` 0 of 140 each; `leak-test` 0 of 112; 0 network attempts.
+- The CHANGELOG now lists the CRLF Edit guard miss as an rc.1 bug with default settings (`plugin/hooks/tools.ts:179` passed an LF two-line Edit on a CRLF file), not only a put-back fix.
+- Checked in the pinned 2.1.316 binary: an Edit with an empty `old_string` fails on a file with non-blank text and creates a missing or blank one, so self-protection and the guard agree with it.
+- Next: the audits again on these fixes, then the owner's commit, CI on three systems, and the merge.
+
+### 2026-11-03: step 8, Audit 3 fixes shipped
+- The owner asked to ship before running the audits again, and to run them on the PR. The fixes and docs are one commit on `step-8`, pushed to PR #9; no new PR.
+- Not ticked: the audits on D-098, and `rc.2` needs the GPG key. The weekly run has only met 2.1.316 so far.
+- Next: the owner runs `/security-review` and `/code-review high` on PR #9; fixes go on `step-8`; then the merge.

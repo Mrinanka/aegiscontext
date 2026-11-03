@@ -269,8 +269,13 @@ export function resolveSettings(sources, o = {}) {
     // Only a broken managed or user source falls back. A broken project source is left out on its
     // own: a downloaded repo must not be able to freeze the settings at an older state.
     const trustedBroken = errors.some(e => e.startsWith('policy:') || e.startsWith('user:'));
-    if (trustedBroken && o.lastGood)
-        return { settings: o.lastGood, errors, notices, ok };
+    if (trustedBroken && o.lastGood) {
+        // The last good settings may come from another project, or from a version with no put_back (rc.1). A managed
+        // off is kept (D-097); what the project says is taken from this run's project sources only.
+        const kept = o.lastGood.put_back;
+        const put_back = { managedOff: kept?.managedOff === true || s.put_back.managedOff, ...(s.put_back.repo ? { repo: s.put_back.repo } : {}) };
+        return { settings: { ...o.lastGood, put_back }, errors, notices, ok };
+    }
     return { settings: s, errors, notices, ok };
 }
 /** What the checker is built from. Bad custom rules are refused by createChecker, with a reason (R-15). */

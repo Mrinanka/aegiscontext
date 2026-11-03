@@ -30,16 +30,27 @@ async function readChoice($: EngineInterface): Promise<{ choice: Choice; unreada
 
 export type PutBackNow = PutBackDecision & { folder: string }
 
+/**
+ * The folder a `--here` choice is for: the project root. A shell `cd` moves `cwd()` but not the root (R-18), and the
+ * project settings are read for the root too.
+ */
+async function projectFolder($: EngineInterface): Promise<string> {
+  return $.session.root()
+}
+
 /** Who decides, with the settings and the choice file as they are now (spec §10). */
 export async function putBackNow($: EngineInterface, rt: Runtime): Promise<PutBackNow> {
   const { choice, unreadable } = await readChoice($)
-  const folder = await $.session.cwd()
-  const caseless = (await osOf($)) !== 'linux'
+  const folder = await projectFolder($)
+  // Whether case counts only matters when there is a folder to compare (on macOS and Linux it starts a process).
+  const hasFolders = Object.keys(choice.folders ?? {}).length > 0
+  const caseless = hasFolders ? (await osOf($)) !== 'linux' : false
   const { all, here } = choiceFacts(choice, folder, caseless)
   const canShow = (await $.session.surfaces()).length > 0
+  const settings = rt.settings.put_back ?? { managedOff: false }
   const decision = resolvePutBack({
-    managedOff: rt.settings.put_back.managedOff,
-    ...(rt.settings.put_back.repo ? { repo: rt.settings.put_back.repo } : {}),
+    managedOff: settings.managedOff === true,
+    ...(settings.repo ? { repo: settings.repo } : {}),
     ...(all ? { all } : {}),
     ...(here ? { here } : {}),
     canShow,
@@ -49,12 +60,16 @@ export async function putBackNow($: EngineInterface, rt: Runtime): Promise<PutBa
   return { ...decision, folder }
 }
 
-/** Saves the developer's choice for all projects, or for this folder only. */
-export async function saveChoice($: EngineInterface, value: Switch, here: boolean): Promise<void> {
-  const { choice } = await readChoice($)
+/**
+ * Saves the developer's choice for all projects, or for this folder only. Says whether the file was there and could
+ * not be read: its earlier choices are then gone, and the person is told so.
+ */
+export async function saveChoice($: EngineInterface, value: Switch, here: boolean): Promise<{ replacedUnreadable: boolean }> {
+  const { choice, unreadable } = await readChoice($)
   const caseless = (await osOf($)) !== 'linux'
-  const next = changeChoice(choice, { value, ...(here ? { here: folderKey(await $.session.cwd(), caseless) } : {}) })
+  const next = changeChoice(choice, { value, ...(here ? { here: folderKey(await projectFolder($), caseless) } : {}) })
   await $.fs.write(await choicePath($), serializeChoice(next))
+  return { replacedUnreadable: unreadable }
 }
 
 /** Shown once a session, always, even with `notices: off`: a project turned on something that is off by default. */
