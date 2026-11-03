@@ -4,7 +4,9 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 
 ## Before a release candidate (`v0.1.0-rc.<n>`)
 
-`v0.1.0-rc.1` went through this list. These are for `v0.1.0-rc.2`.
+`v0.1.0-rc.1` went through this list. These are for `v0.1.0-rc.2`, published on 2026-11-03; the weekly line stays open until its first scheduled run. A later release candidate starts the list again.
+
+If a macOS job is cancelled with "The job was not acquired by Runner of type hosted", GitHub had no macOS runner free. Use "Re-run failed jobs" on that run; nothing in the code failed.
 
 - [x] Step 8 is merged and its audits are done (D-095).
 - [x] `develop` is green in CI on the three systems, including `leak-test:org`, `leak-test:org-observe`, `leak-test:guarded`, `leak-test:guarded-hold` and `leak-test:guarded-login`.
@@ -15,9 +17,9 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 - [x] `docs/tested-versions.md` and `docs/scores.md` are current for this release.
 - [x] Private vulnerability reporting is on (`gh api repos/Mrinanka/aegiscontext/private-vulnerability-reporting` says `enabled`): `SECURITY.md`, `CODE_OF_CONDUCT.md` and the issue template link to it.
 - [x] `npm run release:pack` on a clean tree (see below).
-- [ ] The merge of `develop` into `release`; `release` is the repository's default branch.
+- [x] The merge of `develop` into `release`; `release` is the repository's default branch.
 - [x] A GPG signing key exists, its public key is on the GitHub profile, and its fingerprint is in `SECURITY.md` ("Signing a tag", below). The fingerprint change goes in before the tag.
-- [ ] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v <tag>` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
+- [x] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v <tag>` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
 
 ## Before `v0.1.0`
 
