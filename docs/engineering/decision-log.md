@@ -125,8 +125,6 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-097 | A broken managed block does not turn put-back off | accepted | 8 | 10 |
 | D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
 | D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
-| D-100 | The README names no other tools | accepted | after 8 | none |
-| D-101 | The docs: the main goal in the spec, guides split from the engineering record, limits framed as scope | accepted | after 8 | 2, 5.2, 20, 21, 22 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -960,21 +958,6 @@ Tiny clarifications go under **Minor** at the bottom.
 - Rejected: one concurrency group per event (both runs finish, but every push to a PR branch runs CI twice); keeping the workflow and rerunning the cancelled push run by hand after each push.
 - Consequence: a wip push to a step branch before its PR exists gets no CI. Open the PR, or push to it, to see CI.
 - Evidence: `develop`'s branch protection (`gh api .../branches/develop/protection`: 10 required contexts, `strict`); PR #9 `mergeStateStatus: BLOCKED` with run 41635323874 (pull_request) green and run 41635316122 (push) cancelled on `32929f5`; `tests/repo-setup.test.ts` "CI runs on a pull request into develop or release ...", which failed on `['**']` first.
-
-## D-100: The README names no other tools
-- Date / Step: 2026-11-03 / after step 8        Status: accepted (the owner: "why the hell do i mention any other rival projects?")
-- Decision: The README no longer has the line saying other tools use the name "Aegis". This replaces the README part of D-081; the rest of D-081 stands, and the spec's note on the name keeps the facts.
-- Why: The line sent readers to direct competitors. The repo name `aegiscontext` and the README's own pitch already set the tool apart.
-- Rejected: Keeping the line (D-081's reason: confusion with tools of a similar name).
-- Evidence: D-081; spec, "About the name".
-
-## D-101: The docs: the main goal in the spec, guides split from the engineering record, limits framed as scope
-- Date / Step: 2026-11-03 / after step 8 (docs only, on `develop` by the owner's choice)        Status: accepted (the owner approved the plan)
-- Decision: (1) Spec section 2 opens with the owner's main goal: find every secret with a known shape or a label, let people register the rest, and be easy to use with every feature they need. (2) The engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) moves to `docs/engineering/`; the guides stay in `docs/`, with an index page in each folder. (3) Spec section 22 becomes "Scope and known limits", grouped as outside the goal by design, set by Claude Code, and edges of the tool's own safeguards and optional parts. Every limit and fact stays. (4) The docs say what the evidence says and no more, in both directions: the catch rate is given as 135 of 138 with what the 3 are, self-protection's command check is not called unbeatable, and a compaction summary under the built-in guard is described as measured (held by the resume check). (5) Tone edits only, facts unchanged, in this log: D-002 ("weaker guarantees"), and the label "Weak spot" becomes "Open point" in D-036, D-037 and D-055.
-- Why: The owner wants the public repo to read as a complete tool without overstating anything. Items outside the goal were written as if they were failures, and the guides sat next to the working record.
-- Rejected: Leaving the record in `docs/` with only an index page (no test edits, but the folder stays mixed); removing limits from the docs (`SECURITY.md` uses section 22 to tell a known limit from a vulnerability).
-- Tests: path edits only in `tests/docs.test.ts`, `tests/release-files.test.ts`, `tests/step0-findings.test.ts` and `tests/targets.test.ts`; the canary scan now reaches `docs/engineering/`; two phrases `tests/docs.test.ts` looks for follow the new wording, and both still require skill text to be named. Approved by the owner on 2026-11-03.
-- Evidence: spec sections 2, 3, 6 and 22; `docs/scores.md`; `tests/core-redact.test.ts` (the 3 misses); D-055.
 
 ---
 

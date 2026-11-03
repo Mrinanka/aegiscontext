@@ -6,9 +6,9 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org). 
 
 ### Docs
 
-- The guides stay in `docs/` with an index page; the engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) moves to `docs/engineering/` (D-101).
-- The README leads with what the tool does and how to prove it, and names no other tools (D-100). Its limits, and spec section 22 ("Scope and known limits"), are grouped as outside the goal by design, set by Claude Code, and edges of the tool's own safeguards and optional parts. Every limit is still listed.
-- The catch rate is given as 135 of 138, with what the 3 are; under Claude Code's built-in guard, a compaction summary is described as measured: the resume check holds it.
+- The engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) is now in `docs/engineering/`. The guides stay in `docs/`, with an index page.
+- Outdated information updated to match the measured results: under Claude Code's built-in guard, a compaction summary is held by the resume check, so the model is not sent it (`npm run leak-test:guarded`), and the catch rate of 135 of 138 now says what the 3 misses are.
+- The README and spec section 22 are aligned with the main goal in spec section 2. Every limit is still listed.
 
 No default changed.
 

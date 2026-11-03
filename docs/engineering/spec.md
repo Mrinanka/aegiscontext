@@ -4,12 +4,12 @@ An open-source tool that stops secrets from reaching the model when developers u
 
 - **Status:** draft.
 - **License:** Apache-2.0.
-- **Last updated:** 3 November 2026 (docs: the main goal in section 2, section 22 grouped by scope, D-100 and D-101; step 8: the optional put-back setting, D-096; step 7: `/redact remove`, the backup lock's skill text limit, signed tags, D-090 to D-094).
+- **Last updated:** 3 November 2026 (the main goal in section 2, section 22 updated to the measured results; step 8: the optional put-back setting, D-096; step 7: `/redact remove`, the backup lock's skill text limit, signed tags, D-090 to D-094).
 - **Maintainer:** Mrinanka Dhar
 
 **How to read this spec.** Requirements a build must meet have an ID (`R-01`) and the word **must**. Tests in `plan.md` point to these IDs. **Should** means strongly recommended but not release-blocking. Facts about Claude Code were checked on a real machine in Step 0; the evidence is in `docs/engineering/findings-step0.md`, and a check number (`0.4`) points to its row.
 
-**About the name.** AegisContext is the final name (decided in step 6, D-081 in the decision log; it replaces NoCreds, which was the first choice the same day). The plugin is `aegiscontext`, the settings key `aegisContext`, the environment prefix `AEGISCONTEXT_`, the data folder and password-store service `aegiscontext`, and the repo `Mrinanka/aegiscontext`. The name has no "Claude" or "Anthropic" in it (trademarks; "for Claude Code" in the description is fine). When chosen it was free on npm and no GitHub repo was named `aegiscontext`, but "Aegis" is common in security: other tools use it for Claude Code secret detection, an LLM secrets firewall and a Kubernetes secrets store. The README does not name or describe other tools (D-100). No trademark register has been searched; do that before v0.1.0.
+**About the name.** AegisContext is the final name (decided in step 6, D-081 in the decision log; it replaces NoCreds, which was the first choice the same day). The plugin is `aegiscontext`, the settings key `aegisContext`, the environment prefix `AEGISCONTEXT_`, the data folder and password-store service `aegiscontext`, and the repo `Mrinanka/aegiscontext`. The name has no "Claude" or "Anthropic" in it (trademarks; "for Claude Code" in the description is fine). When chosen it was free on npm and no GitHub repo was named `aegiscontext`, but "Aegis" is common in security: other tools use it for Claude Code secret detection, an LLM secrets firewall and a Kubernetes secrets store. The README does not name or describe other tools. No trademark register has been searched; do that before v0.1.0.
 
 ---
 
@@ -21,7 +21,7 @@ When a developer types a message, or Claude reads a file or command output, the 
 
 **Goals**
 
-- **The main goal (D-101): find every secret that has a known shape or a label, let people register the ones that have neither, and be easy to use, with every feature they need.**
+- **The main goal: find every secret that has a known shape or a label, let people register the ones that have neither, and be easy to use, with every feature they need.**
 - Very low chance of a secret reaching the model (measured; see section 20).
 - Fast enough that nobody notices it running.
 - Works with no setup, and is easy to change for people who want to.

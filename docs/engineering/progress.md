@@ -2,7 +2,7 @@
 
 Spec: `docs/engineering/spec.md`. Plan: `docs/engineering/plan.md`. Parked work: spec §23.
 
-**Current focus:** Steps 0 to 8 are done, and `v0.1.0-rc.2` is published as a signed pre-release (2026-11-03). Next: the two weeks of daily use and the hand checks, with the other "Before `v0.1.0`" items in `docs/engineering/release-checklist.md`. `v0.1.0-rc.1` stays an unsigned draft release. Docs pass on `develop` (2026-11-03, D-100, D-101): the engineering record moved to `docs/engineering/`, spec §2 states the main goal, §22 is grouped by scope.
+**Current focus:** Steps 0 to 8 are done, and `v0.1.0-rc.2` is published as a signed pre-release (2026-11-03). Next: the two weeks of daily use and the hand checks, with the other "Before `v0.1.0`" items in `docs/engineering/release-checklist.md`. `v0.1.0-rc.1` stays an unsigned draft release.
 
 ## Steps
 
@@ -24,7 +24,7 @@ Spec: `docs/engineering/spec.md`. Plan: `docs/engineering/plan.md`. Parked work:
 
 Bugs, unfinished bits and open questions. Features we chose not to build go in spec §23.
 
-- The plugin's own guard warning (`src/core/guard-check.ts:37,42`, asserted by `tests/guard-check.test.ts:33,47`) says compaction summaries are "NOT being checked" on a guarded machine. The measured result (spec §22, built-in guard) is that the resume check finds a raw summary and holds the next message, so the model is not sent it. The docs now say so (D-101); changing the warning is a product change and waits for the owner.
+- The plugin's own guard warning (`src/core/guard-check.ts:37,42`, asserted by `tests/guard-check.test.ts:33,47`) says compaction summaries are "NOT being checked" on a guarded machine. The measured result (spec §22, built-in guard) is that the resume check finds a raw summary and holds the next message, so the model is not sent it. The docs give that measured result; changing the warning is a product change and waits for the owner.
 - Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/engineering/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
 - A pull request from `develop` into `release` shares `ci.yml`'s concurrency group with `develop`'s own merge run (both are named after `develop`), so the PR run cancels the merge run and its 10 cancelled checks block the merge, as in D-099. For rc.2 (PR #12) the cancelled run 41658861629 was rerun after the PR run passed. A fix (the event name in the group) would reopen D-099's rejected option and waits for the owner's yes.
 - `npm run release:pack` refuses only when the output folder already holds archives for the same tag, so it overwrites another tag's `SHA256SUMS` in `dist/release`. Seen on 2026-11-03 with a trial rc.2 pack beside the local rc.1 files; the local rc.1 file was rebuilt. The release workflow packs in a fresh checkout, so a published release is not affected.
@@ -32,6 +32,8 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - Put-back (step 8): whether `$.state` is cleared by `/clear` is unknown (its docs say "for the session"), so the put-back note and the once-a-session notice may carry over. Check with the `/clear` hand check.
 - Put-back (step 8): a catch added by `keepHidden` reaches `$.state` at the next stored row, not at once, so a worker killed in between forgets it. Only a value the D-071 filter would drop depends on it.
 - `plugin/hooks/shield.test.ts` "R-12: a check that could not finish hides what it found and warns; hold withholds" takes about 4.3 s against the kit's 5 s limit on this machine, before and after step 8, and timed out once on a slow run. Not changed; watch it in CI.
+- The placeholder example in README.md:6 and spec §9 (`AWS_KEY ...0001`) is not what the tool prints for an AWS key: the checker labels one `AWS_ACCESS_TOKEN` (`src/checker/rules.generated.ts:402`), and an AWS key ID ends in A–Z or 2–7, so its hint can't be `0001`. Found on 2026-11-03 while making the promo, which shows the real output. Fixing the docs waits for the owner.
+- The promo video project (`promo/`, Remotion) is git-ignored and lives only on the maintainer's machine; the owner plans to move it to its own repo later (2026-11-04). Only its README loop is in the repo (`docs/media/`). The video shows numbers from docs/scores.md and a leak test run (135 of 138, 0 of 112, 16 doors), and nothing in CI checks them, so re-render (`npm run check` in `promo/` checks the claims against their sources) when they change.
 - Probe tests (`claude plugin test`) don't run in CI. The pinned `claude` now makes that possible; it wasn't added in step 1.
 - `claude plugin test` (2.1.316): a `turn.step` stream's `.result` resolves `undefined` even when the step beneath answers, contrary to its doc (`HookStream.result`, `claude-code.d.ts:5383`). Probe tests check the hold through its effects instead. Report it upstream.
 - The desktop app's probe log had no `start` line, so its Claude Code version wasn't recorded. Check before release.

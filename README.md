@@ -2,6 +2,10 @@
 
 **Keep API keys, passwords and tokens out of Claude's context.** AegisContext is a [Claude Code](https://claude.com/claude-code) plugin that swaps each secret for a placeholder before the model sees it. Claude keeps working: it knows a secret is there, but never sees the value.
 
+![A config file scrolls up through a red line. Below the line is the file as it is on disk; above it is what the model is sent. Ordinary lines cross unchanged; an AWS key and a password come out as placeholders such as [REDACTED:AWS_ACCESS_TOKEN ...4P3A #k7q2m5x4p3abc].](docs/media/aegiscontext-loop.gif)
+
+Below the line, a config file on your machine (fake keys). Above it, what the model is sent: the placeholders are the tool's real output.
+
 - **Every door checked.** What you type and paste, every file Claude reads (`@` files too), command output (failed commands included), MCP tool results, subagents' work, project instruction files and compaction summaries. Emails and phone numbers too, if you switch `personal_data` on.
 - **Claude stays useful.** A placeholder such as `[REDACTED:AWS_KEY ...0001 #k7q2m5x4p3abc]` gives the kind, the last four characters (you can turn that off) and a random tag. If a known secret still turns up in a command, web request or connected tool, a last check blocks the call before it runs.
 - **The tool itself never touches the network.** No network calls, no telemetry, no runtime libraries: everything that runs is in this repo. Secrets you register live in your OS password store, and it never writes a secret to disk unencrypted. (The one optional exception, `put_back`, is off by default.)
