@@ -1,6 +1,6 @@
 // What the model sees in place of a secret (spec §9):
 //
-//   [REDACTED:AWS_KEY ...0001 #k7q2m9x4p1abc]
+//   [REDACTED:AWS_ACCESS_TOKEN ...7QXZ #k7q2m5x4p3abc]
 //
 // The tag is 13 base32 characters, which is 65 random bits (the spec asks for 64 or more).
 

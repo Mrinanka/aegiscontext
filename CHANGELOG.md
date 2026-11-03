@@ -9,6 +9,7 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org). 
 - The engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) is now in `docs/engineering/`. The guides stay in `docs/`, with an index page.
 - Outdated information updated to match the measured results: under Claude Code's built-in guard, a compaction summary is held by the resume check, so the model is not sent it (`npm run leak-test:guarded`), and the catch rate of 135 of 138 now says what the 3 misses are.
 - The README and spec section 22 are aligned with the main goal in spec section 2. Every limit is still listed.
+- The placeholder example in the README, the plugin README and spec section 9 now shows what the tool prints for an AWS key: the label `AWS_ACCESS_TOKEN`, a hint an AWS key ID can end with, and a valid tag.
 
 No default changed.
 

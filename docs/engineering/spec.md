@@ -236,7 +236,7 @@ An earlier design stored only keyed fingerprints. That conflicts with two other 
 A placeholder in place of each secret, for example:
 
 ```
-[REDACTED:AWS_KEY ...0001 #k7q2m9x4p1abc]
+[REDACTED:AWS_ACCESS_TOKEN ...7QXZ #k7q2m5x4p3abc]
 ```
 
 - **Label:** what kind of secret it was.
