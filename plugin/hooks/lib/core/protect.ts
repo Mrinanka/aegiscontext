@@ -33,20 +33,26 @@ const isAbsolute = (path: string, windows: boolean): boolean => (windows ? /^(?:
  * Windows `/c/...` is `C:\...`; a relative path starts at the working folder. Not normalized: see `normalize`.
  */
 export function expandPath(path: string, o: Expand): string {
-  // On Windows the result uses backslashes, as Claude Code's own path joining does, so it can be read as it is.
-  const native = (p: string): string => (o.windows ? p.replace(/\//g, '\\') : p)
-  const join = (base: string, rest: string): string => native(`${base.replace(/[\\/]+$/, '')}/${rest}`)
+  // A part built on a Windows folder uses backslashes, as Claude Code's own path joining does, so it can be read as it
+  // is. A path given whole keeps its own: the OS can say Windows while a folder is POSIX-shaped (a short environment).
+  const back = (p: string): string => p.replace(/\//g, '\\')
+  const onDrive = (base: string): boolean => o.windows && /^(?:[A-Za-z]:|\\\\)/.test(base)
+  const join = (base: string, rest: string): string => {
+    const head = base.replace(/[\\/]+$/, '')
+    return onDrive(base) ? back(`${head}/${rest}`) : `${head}/${rest}`
+  }
   const t = path.trim()
   if (t === '') return o.cwd
   if (t === '~') return o.home
   if (t.startsWith('~/')) return join(o.home, t.slice(2))
-  const p = (o.windows ? driveForm(t) : undefined) ?? t
-  if (isAbsolute(p, o.windows)) {
+  const drive = o.windows ? driveForm(t) : undefined
+  if (drive !== undefined) return back(drive)
+  if (isAbsolute(t, o.windows)) {
     // A Windows path from the root of the drive stays on the working folder's drive.
-    if (o.windows && /^[\\/](?![\\/])/.test(p) && /^[A-Za-z]:/.test(o.cwd)) return native(`${o.cwd.slice(0, 2)}${p}`)
-    return native(p)
+    if (o.windows && /^[\\/](?![\\/])/.test(t) && /^[A-Za-z]:/.test(o.cwd)) return back(`${o.cwd.slice(0, 2)}${t}`)
+    return t
   }
-  return join(o.cwd, p)
+  return join(o.cwd, t)
 }
 
 /** Top-level settings that can switch the tool off or change what it does. */

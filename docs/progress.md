@@ -327,4 +327,5 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 ### 2026-11-03: step 8, Audit 3 fixes shipped
 - The owner asked to ship before running the audits again, and to run them on the PR. The fixes and docs are one commit on `step-8`, pushed to PR #9; no new PR.
 - Not ticked: the audits on D-098, and `rc.2` needs the GPG key. The weekly run has only met 2.1.316 so far.
+- PR #9's first CI run on `55c5bd3` (41633083348) failed four hook tests on Linux and macOS: `expandPath` turned every `/` into `\` when the OS said Windows, and the hook tests' world says Windows with POSIX paths. A path given whole now keeps its separators, and a join uses its base's; a unit test reproduces it on Windows and failed first.
 - Next: the owner runs `/security-review` and `/code-review high` on PR #9; fixes go on `step-8`; then the merge.

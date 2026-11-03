@@ -206,6 +206,19 @@ test('expandPath follows Claude Code: trim, ~ and ~/, /c/ on Windows, relative t
   assert.equal(normalize(expandPath('~other/x', nix), false), '/srv/p/~other/x', 'only ~ and ~/ name the home folder')
 })
 
+test('expandPath keeps a whole path as given, and joins with the separator of the folder it starts from', () => {
+  // The OS can say Windows while paths are POSIX-shaped (a host's short environment, the hook tests on Linux and macOS).
+  const mixed = { home: '/cfg', cwd: '/work', windows: true }
+  assert.equal(expandPath('/work/.claude/settings.json', mixed), '/work/.claude/settings.json')
+  assert.equal(expandPath('.claude/settings.json', mixed), '/work/.claude/settings.json')
+  assert.equal(expandPath('~/aegiscontext/put-back.json', mixed), '/cfg/aegiscontext/put-back.json')
+  assert.equal(expandPath('x/y', win), 'D:\\p\\x\\y')
+  assert.equal(expandPath('~/.claude', win), 'C:\\Users\\me\\.claude')
+  assert.equal(expandPath('/c/Users/me', win), 'C:\\Users\\me')
+  assert.equal(expandPath('\\top\\x', win), 'D:\\top\\x')
+  assert.equal(expandPath('D:\\p\\a.json', win), 'D:\\p\\a.json')
+})
+
 test('Audit 3: each spelling of the choice file or a settings file that Claude Code expands is caught', () => {
   const r: Roots = { ...roots, home: 'C:\\Users\\me', cwd: 'D:\\p', windows: true }
   const at = (p: string, cwd = 'D:\\p'): string => expandPath(p, { home: 'C:\\Users\\me', cwd, windows: true })
