@@ -1,6 +1,6 @@
 # Verify it yourself
 
-The maintainers cannot test inside every organization, so everything needed to test ships with the tool. None of it needs an API key or the network.
+We can't test inside your organization, so you can: everything needed to test ships with the tool. None of it needs an API key or the network.
 
 ## In a session
 
@@ -51,19 +51,19 @@ The runs below write the **machine's managed settings file** while they run, so 
 
 ### The weekly run
 
-`.github/workflows/weekly.yml` installs the **newest** Claude Code each week, with its install scripts off, and runs `claude plugin validate` and `claude plugin test`, the kit's baseline, the rewrite test (`tests/rewrite-real.test.ts`), every door, the put-back doors on and off, the backup lock with and without its limits, and the Team login run. It prints the version it tested first. It is an early warning, so a change in Claude Code is seen before you install it. It proves nothing for a release, which is tested on the pinned version. You can start it by hand from the Actions tab. GitHub switches a scheduled workflow off after 60 days with no activity in the repository.
+`.github/workflows/weekly.yml` installs the **newest** Claude Code each week, with its install scripts off, and runs `claude plugin validate` and `claude plugin test`, the kit's baseline, the rewrite test (`tests/rewrite-real.test.ts`), every door, the put-back doors on and off, the backup lock with and without its limits, and the Team login run. It prints the version it tested first. It is an early warning, so a change in Claude Code is seen before you install it; releases are proven on the pinned version. You can start it by hand from the Actions tab. GitHub switches a scheduled workflow off after 60 days with no activity in the repository.
 
-### What the kit does not prove
+### Where the kit's edges are
 
 - It tests the pinned Claude Code (see [tested-versions.md](tested-versions.md)), against a pretend model. It does not call the real API.
-- A `-p` run cannot show a permission dialog or the notice that a repo turned put-back on, so those two are hand checks ([release-checklist.md](release-checklist.md)).
-- No network traffic is **proven** only on Linux, where a no-network run is part of CI. On Windows and macOS the proxy trap sees only traffic that honours proxy settings.
+- A `-p` run cannot show a permission dialog or the notice that a repo turned put-back on, so those two are hand checks ([release-checklist.md](engineering/release-checklist.md)).
+- On Linux, CI **proves** no network traffic with a no-network run. On Windows and macOS the proxy trap sees only traffic that honours proxy settings.
 - The login runs use a made-up login. They prove that a Team or Enterprise plan seats the built-in guard and what happens then, not how a real account behaves.
-- The VS Code extension and the desktop app run their own copy of Claude Code; they were checked by hand once per release ([release-checklist.md](release-checklist.md)), not by the kit.
+- The VS Code extension and the desktop app run their own copy of Claude Code; they were checked by hand once per release ([release-checklist.md](engineering/release-checklist.md)), not by the kit.
 
 ## Check a release
 
-Release tags from `v0.1.0-rc.2` on are signed with the maintainer's GPG key. `v0.1.0-rc.1` is not signed. `SHA256SUMS` sits in the same release as the archives, so it catches a damaged download but not a tampered release. The signature is what shows the tag came from the maintainer.
+Release tags from `v0.1.0-rc.2` on are signed with the maintainer's GPG key, and the signature shows the tag came from the maintainer. `v0.1.0-rc.1` is not signed. `SHA256SUMS` sits in the same release as the archives, so it catches a damaged download but not a tampered release.
 
 Take the key from the maintainer's GitHub profile, not from the archive you are checking:
 

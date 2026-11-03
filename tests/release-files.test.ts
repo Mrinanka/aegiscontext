@@ -63,7 +63,7 @@ test('the files a newcomer is pointed to exist', () => {
   const files = [
     'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES', 'SECURITY.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'CHANGELOG.md',
     '.github/ISSUE_TEMPLATE/bug_report.yml', '.github/ISSUE_TEMPLATE/config.yml',
-    'docs/personal.md', 'docs/managed.md', 'docs/verify.md', 'docs/troubleshooting.md', 'docs/tested-versions.md', 'docs/scores.md', 'docs/release-checklist.md',
+    'docs/personal.md', 'docs/managed.md', 'docs/verify.md', 'docs/troubleshooting.md', 'docs/tested-versions.md', 'docs/scores.md', 'docs/README.md', 'docs/engineering/release-checklist.md',
     'docs/snippets/personal.json', 'docs/snippets/managed.json', 'docs/snippets/managed-plugin.json', 'plugin/README.md',
   ]
   for (const f of files) assert.ok(fs.existsSync(path.join(root, ...f.split('/'))), f)
@@ -88,6 +88,6 @@ test('the security policy points at private reporting and warns against real sec
 test('the README states the limits, and says it reduces risk and guarantees nothing', () => {
   const t = text('README.md')
   assert.match(t, /not a guarantee/i)
-  assert.match(t, /What it cannot do/)
+  assert.match(t, /Where the edges are/)
   assert.match(t, /built-in guard/i)
 })

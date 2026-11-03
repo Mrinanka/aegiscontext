@@ -1,8 +1,8 @@
 # Progress
 
-Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
+Spec: `docs/engineering/spec.md`. Plan: `docs/engineering/plan.md`. Parked work: spec §23.
 
-**Current focus:** Steps 0 to 8 are done, and `v0.1.0-rc.2` is published as a signed pre-release (2026-11-03). Next: the two weeks of daily use and the hand checks, with the other "Before `v0.1.0`" items in `docs/release-checklist.md`. `v0.1.0-rc.1` stays an unsigned draft release.
+**Current focus:** Steps 0 to 8 are done, and `v0.1.0-rc.2` is published as a signed pre-release (2026-11-03). Next: the two weeks of daily use and the hand checks, with the other "Before `v0.1.0`" items in `docs/engineering/release-checklist.md`. `v0.1.0-rc.1` stays an unsigned draft release. Docs pass on `develop` (2026-11-03, D-100, D-101): the engineering record moved to `docs/engineering/`, spec §2 states the main goal, §22 is grouped by scope.
 
 ## Steps
 
@@ -18,13 +18,14 @@ Spec: `docs/spec.md`. Plan: `docs/plan.md`. Parked work: spec §23.
 | 7 | Fixes before daily use (D-090) | `step-7` | ☑ |
 | 8 | Put secrets back + weekly CI + Audit 3 (D-095) | `step-8` | ☑ |
 
-"Done when" for each step is in `docs/plan.md`, "The 7 steps".
+"Done when" for each step is in `docs/engineering/plan.md`, "The 7 steps".
 
 ## Known issues
 
 Bugs, unfinished bits and open questions. Features we chose not to build go in spec §23.
 
-- Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
+- The plugin's own guard warning (`src/core/guard-check.ts:37,42`, asserted by `tests/guard-check.test.ts:33,47`) says compaction summaries are "NOT being checked" on a guarded machine. The measured result (spec §22, built-in guard) is that the resume check finds a raw summary and holds the next message, so the model is not sent it. The docs now say so (D-101); changing the warning is a product change and waits for the owner.
+- Put-back (step 8): a `-p` run cannot show a permission dialog or the repo notice, so those two are hand checks (`docs/engineering/release-checklist.md`). The weekly run's `schedule` starts only after `develop` is merged into `release`; its `push` trigger proves it on `step-8`.
 - A pull request from `develop` into `release` shares `ci.yml`'s concurrency group with `develop`'s own merge run (both are named after `develop`), so the PR run cancels the merge run and its 10 cancelled checks block the merge, as in D-099. For rc.2 (PR #12) the cancelled run 41658861629 was rerun after the PR run passed. A fix (the event name in the group) would reopen D-099's rejected option and waits for the owner's yes.
 - `npm run release:pack` refuses only when the output folder already holds archives for the same tag, so it overwrites another tag's `SHA256SUMS` in `dist/release`. Seen on 2026-11-03 with a trial rc.2 pack beside the local rc.1 files; the local rc.1 file was rebuilt. The release workflow packs in a fresh checkout, so a published release is not affected.
 - Put-back (step 8), the owner's call on 2026-11-03 (D-097): a broken managed block does not read as off. Managed `put_back: false`, `"Off"`, or a valid `off` beside any other bad managed value leaves `managedOff` false on a first load (scratch run), and a fallback takes the last good value, so a developer's or repo's `on` still counts. Only an error in `/redact doctor` says so.
@@ -42,7 +43,7 @@ Bugs, unfinished bits and open questions. Features we chose not to build go in s
 - CI's password store and Node steps print evidence but can't fail the job. A change in them only shows if someone reads the log.
 - Killing the kit mid-run, or using `--keep`, leaves a scratch folder holding that run's fakes.
 - Step 2 rejects 3 Gitleaks rules (D-032): `kubernetes-secret-yaml` stays out (D-038, spec §22); `facebook-access-token` has no required literal; `pkcs12-file` matches file names, not text.
-- False alarms on the typescript and @types/node sources (2.9 MB), after step 5: with file names 12 hidden (4.16 per MB); with no file name 159 (55.14 per MB), 76.30 per MB through the pipeline. What is left is TypeScript annotations such as `privateKey: KeyObject;`, a PascalCase type after a label, which looks the same as a letters-only password. The log-like set (`tools/test-sets/logs.ts`) is 214.33 per MB, 136 of 225 hits being 32-hex values after `key=` that Gitleaks' generic rule takes for API keys; many real keys look the same, so they stay. Numbers and the before/after are in `docs/targets.md`.
+- False alarms on the typescript and @types/node sources (2.9 MB), after step 5: with file names 12 hidden (4.16 per MB); with no file name 159 (55.14 per MB), 76.30 per MB through the pipeline. What is left is TypeScript annotations such as `privateKey: KeyObject;`, a PascalCase type after a label, which looks the same as a letters-only password. The log-like set (`tools/test-sets/logs.ts`) is 214.33 per MB, 136 of 225 hits being 32-hex values after `key=` that Gitleaks' generic rule takes for API keys; many real keys look the same, so they stay. Numbers and the before/after are in `docs/engineering/targets.md`.
 - With no file name, rules with a path condition still run (D-029), so `hashicorp-tf-password` hides quoted 8 to 20 character values after `password` even in non-Terraform text.
 - A hit's area is the pattern's longest match on each side of the keyword. 16 rules reach up to about 32 KB on each side, so about 64 KB per hit; many such hits are bounded by the 4 s budget (`complete: false`), which step 3 must treat as a check failure (R-12).
 - `tools/rules/sample.ts` builds random strings from patterns for tests only; they hold no fixed key.

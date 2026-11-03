@@ -1,4 +1,4 @@
-// docs/targets.md and tools/measure/targets.ts must say the same numbers (plan step 5 item 9): a target that
+// docs/engineering/targets.md and tools/measure/targets.ts must say the same numbers (plan step 5 item 9): a target that
 // is published but not enforced, or enforced but not published, is no target.
 
 import { test } from 'node:test'
@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { TARGETS } from '../tools/measure/targets.ts'
 
-const doc = fs.readFileSync(path.join(import.meta.dirname, '..', 'docs', 'targets.md'), 'utf8')
+const doc = fs.readFileSync(path.join(import.meta.dirname, '..', 'docs', 'engineering', 'targets.md'), 'utf8')
 const table = doc.slice(doc.indexOf('## The targets'), doc.indexOf('## What changed in step 5'))
 const comma = (n: number): string => n.toLocaleString('en-US')
 

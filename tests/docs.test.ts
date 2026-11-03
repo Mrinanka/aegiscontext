@@ -16,7 +16,7 @@ const read = (...p: string[]): string => fs.readFileSync(rel(...p), 'utf8')
 /** The files the docs checks read: the README, the repo files and docs/*.md except the history logs. */
 const DOC_FILES = [
   'README.md', 'SECURITY.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'CHANGELOG.md', 'plugin/README.md',
-  'docs/personal.md', 'docs/managed.md', 'docs/verify.md', 'docs/troubleshooting.md', 'docs/tested-versions.md', 'docs/scores.md', 'docs/release-checklist.md',
+  'docs/personal.md', 'docs/managed.md', 'docs/verify.md', 'docs/troubleshooting.md', 'docs/tested-versions.md', 'docs/scores.md', 'docs/engineering/release-checklist.md', 'docs/README.md', 'docs/engineering/README.md',
   'docs/snippets/README.md',
 ]
 
@@ -103,10 +103,10 @@ test('the release workflow runs on tags, calls CI first, and makes a draft', () 
 
 test('the limits of the backup lock name skill text wherever they are listed (the kit proves it leaks there)', () => {
   const says = (text: string, needle: string): boolean => text.split('\n').some(l => l.includes(needle) && /skill text/.test(l))
-  const spec = read('docs', 'spec.md')
-  assert.ok(says(spec, '**Doors it does not cover**'), 'spec section 5.2')
+  const spec = read('docs', 'engineering', 'spec.md')
+  assert.ok(says(spec, '**Outside its scope, measured**'), 'spec section 5.2')
   assert.ok(says(spec, "It doesn't cover `@` files"), 'spec section 22')
-  assert.ok(says(read('docs', 'personal.md'), 'It does **not** cover `@` files'), 'docs/personal.md')
+  assert.ok(says(read('docs', 'personal.md'), 'its scope leaves out `@` files'), 'docs/personal.md')
 })
 
 test('the README command table lists every /redact subcommand', () => {

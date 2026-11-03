@@ -4,9 +4,9 @@ description: Plan the next build step (use in plan mode), then build it after ap
 disable-model-invocation: true
 ---
 
-Find the first unticked step in `docs/progress.md`. That is this session's step. Never start another one.
+Find the first unticked step in `docs/engineering/progress.md`. That is this session's step. Never start another one.
 
-**Read:** `CLAUDE.md`, `docs/progress.md` (including Known issues and Gotchas), the step's section in `docs/plan.md`, the spec sections it refers to, and the entries in `docs/decision-log.md` and `docs/findings-step0.md` that touch this step. Don't build on a [Step 0] item that findings haven't confirmed. Don't reopen an accepted decision without saying so.
+**Read:** `CLAUDE.md`, `docs/engineering/progress.md` (including Known issues and Gotchas), the step's section in `docs/engineering/plan.md`, the spec sections it refers to, and the entries in `docs/engineering/decision-log.md` and `docs/engineering/findings-step0.md` that touch this step. Don't build on a [Step 0] item that findings haven't confirmed. Don't reopen an accepted decision without saying so.
 
 **Check current docs** for every API this step uses: the Claude Code mod API types (the file the `plugin-authoring` skill names; grep for the event or noun), Node.js docs, and the pinned Gitleaks source. Tell me the exact versions you'll pin and the docs pages or `file:line` you read.
 
@@ -21,7 +21,7 @@ Find the first unticked step in `docs/progress.md`. That is this session's step.
 
 Design choices: ask with AskUserQuestion, following "Questions" in `CLAUDE.md`. Then ask separately for plan approval; answers to design questions are not approval.
 
-**Step 0 only:** the "build" is small probes in `experiments/` that I run by hand (new sessions, VS Code, a VM). Give me numbered copy-paste steps, read the logs yourself afterwards, and record each check in `docs/findings-step0.md`: result, `claude --version`, OS, surface, method, short evidence excerpt (no secrets), spec impact.
+**Step 0 only:** the "build" is small probes in `experiments/` that I run by hand (new sessions, VS Code, a VM). Give me numbered copy-paste steps, read the logs yourself afterwards, and record each check in `docs/engineering/findings-step0.md`: result, `claude --version`, OS, surface, method, short evidence excerpt (no secrets), spec impact.
 
 **When I approve, build with these rules:**
 - Tests first, and show they fail for the right reason. Then the code.

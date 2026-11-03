@@ -2,6 +2,16 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org). A change to a default is called out under **Changed defaults**.
 
+## Unreleased
+
+### Docs
+
+- The guides stay in `docs/` with an index page; the engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) moves to `docs/engineering/` (D-101).
+- The README leads with what the tool does and how to prove it, and names no other tools (D-100). Its limits, and spec section 22 ("Scope and known limits"), are grouped as outside the goal by design, set by Claude Code, and edges of the tool's own safeguards and optional parts. Every limit is still listed.
+- The catch rate is given as 135 of 138, with what the 3 are; under Claude Code's built-in guard, a compaction summary is described as measured: the resume check holds it.
+
+No default changed.
+
 ## 0.1.0-rc.2 (release candidate)
 
 Fixes from the review of rc.1, made before the two weeks of daily use so that they cover the final code.

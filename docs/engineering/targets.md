@@ -28,13 +28,13 @@ The false-alarm figures at the start of step 5 and at the end, on the same sets:
 | Source files, no file name (pipeline) | 350.28 | 76.30 | a letters-only value found only by a label is not remembered (D-071) |
 | Log-like text (checker alone and pipeline) | 404.8 | 214.33 | prose after a colon, such as `token: signature mismatch`, is left alone |
 
-Not changed, and why: `generic-api-key` hides 136 hex values per 1.05 MB of logs (`cache key=` followed by 32 hex characters). Many real API keys are 32 hex characters, so leaving these alone would leak real keys. It is the largest remaining false-alarm class.
+Kept on purpose: `generic-api-key` hides 136 hex values per 1.05 MB of logs (`cache key=` followed by 32 hex characters). Many real API keys are 32 hex characters, so leaving these alone would leak real keys. It is the largest false-alarm class, by choice.
 
 The repeated-line skip was removed (D-074): 160 of 219 rules can match across a newline, so it skipped almost nothing, and measured warm it gained between -15% and 13%, which is noise.
 
-## What these numbers are not
+## How to read these numbers
 
 - **One computer.** Measured on the maintainer's Windows 11 PC with Node 24.22.1. macOS and Linux were measured by CI only after this file was written; if they differ, the targets above are what to meet, and a miss is fixed or the target is changed with a note in the changelog.
-- **The log set was written by the same person who tuned the checker against it** (`tools/test-sets/logs.ts`), so it can flatter the tuning. It is a first set, not a verdict. Its mix (how many lines carry a label word) is a judgment, and a different mix gives different per-MB figures. The source-file set (the TypeScript and `@types/node` sources) is not written by us.
+- **The log set was written by the same person who tuned the checker against it** (`tools/test-sets/logs.ts`), so read it as our own benchmark, not an independent one. It is a first set, public and rerunnable. Its mix (how many lines carry a label word) is a judgment, and a different mix gives different per-MB figures. The source-file set (the TypeScript and `@types/node` sources) is not written by us.
 - **The catch set is ours too.** 138 cases of the formats and contexts we thought of.
 - **Speed in a real session** also includes starting Claude Code's hook process. On Windows, a session with saved secrets starts PowerShell for about one second per hook of the backup lock (spec §22); that is not in these figures.

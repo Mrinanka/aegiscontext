@@ -125,6 +125,8 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-097 | A broken managed block does not turn put-back off | accepted | 8 | 10 |
 | D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
 | D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
+| D-100 | The README names no other tools | accepted | after 8 | none |
+| D-101 | The docs: the main goal in the spec, guides split from the engineering record, limits framed as scope | accepted | after 8 | 2, 5.2, 20, 21, 22 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -155,7 +157,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Options considered: Both, with a guide for each / developers first, with managed install as an appendix.
 - Decision: Both, as first-class modes.
 - Why: The owner wants any developer to "just use it", and companies to be able to adopt and test it themselves.
-- Trade-offs: Two install paths to document and test. Personal mode has weaker guarantees (tier bypass, `allowManagedHooksOnly`), which must be stated clearly.
+- Trade-offs: Two install paths to document and test. Personal mode has limits the organization install closes (tier bypass, `allowManagedHooksOnly`), which must be stated clearly.
 - Revisit when: Step 0 shows a mode can't meet its stated guarantees.
 - Links: spec §5.3, §19; R-05.
 
@@ -493,14 +495,14 @@ Tiny clarifications go under **Minor** at the bottom.
   - Step 3 verifies that `security -i` doesn't record the value anywhere.
 - Why: Two code paths would leave the rarely used one the least tested, where a bug can lose saved secrets. The owner first raised blocks for big `learn` runs, then chose this recommendation: "i like your suggestion".
 - Rejected: Blocks only for big `learn` runs (see Why). One item holding the whole list (check 0.4). The 10,000 figure as a store target: it is a speed goal for matching, and the store doesn't need to reach it unless the measurements allow it.
-- Evidence: findings 0.4: DPAPI round trip ok at 1 MB; `security -i` and `secret-tool` ok at 1 KB, failing at 64 KB. Weak spot: no timing yet for reading many pieces on macOS or Linux, and a slow read would slow every session start.
+- Evidence: findings 0.4: DPAPI round trip ok at 1 MB; `security -i` and `secret-tool` ok at 1 KB, failing at 64 KB. Open point: no timing yet for reading many pieces on macOS or Linux, and a slow read would slow every session start.
 
 ## D-037: `personal_data` is built in step 5
 - Date / Step: 2026-10-31 / 2        Status: accepted
 - Decision: Plan step 5 builds the setting for emails and phone numbers, off by default. Until then, step 3 shows "not available yet" when someone turns it on. Spec §2 no longer lists it as both a non-goal and an available setting.
 - Why: The setting was in the spec but in no step, so step 3 would have accepted `personal_data: on` and done nothing, which is the false comfort R-05 exists to prevent. Step 5 is where false alarms get tuned, and that is the hard part. The owner chose this option.
 - Rejected: Parking it in §23 (drops something organizations may ask for). Step 4 (ships before tuning, in the largest step).
-- Evidence: spec §2, §14. Weak spot: false alarms are unmeasured, and the false-alarm set is TypeScript sources, so step 5 also measures log-like text.
+- Evidence: spec §2, §14. Open point: false alarms are unmeasured, and the false-alarm set is TypeScript sources, so step 5 also measures log-like text.
 
 ## D-038: `kubernetes-secret-yaml` stays rejected
 - Date / Step: 2026-10-31 / 2        Status: accepted
@@ -627,7 +629,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Decision: Deny any write to the data and plugin folders. In Claude Code settings files, deny only a change to `disableAllHooks`, `allowManagedHooksOnly`, `hooks`, `enabledPlugins`, `secretShield` or `env.CLAUDE_CODE_SIMPLE`. Bash and PowerShell get a best-effort text check.
 - Why: Check 0.14: one setting silently turns both locks off, and spec §3 has injection in scope. The owner chose this option.
 - Rejected: Own files only (leaves the hole). Denying all settings writes (blocks ordinary edits).
-- Evidence: Findings 0.14; a real run stopped a Write of `disableAllHooks`; `tests/core-lock.test.ts`. Weak spot: a disguised shell command, in spec §22.
+- Evidence: Findings 0.14; a real run stopped a Write of `disableAllHooks`; `tests/core-lock.test.ts`. Open point: a disguised shell command, in spec §22.
 
 ## D-056: The resume block drops the next prompt
 - Date / Step: 2026-11-01 / 4        Status: accepted
@@ -958,6 +960,21 @@ Tiny clarifications go under **Minor** at the bottom.
 - Rejected: one concurrency group per event (both runs finish, but every push to a PR branch runs CI twice); keeping the workflow and rerunning the cancelled push run by hand after each push.
 - Consequence: a wip push to a step branch before its PR exists gets no CI. Open the PR, or push to it, to see CI.
 - Evidence: `develop`'s branch protection (`gh api .../branches/develop/protection`: 10 required contexts, `strict`); PR #9 `mergeStateStatus: BLOCKED` with run 41635323874 (pull_request) green and run 41635316122 (push) cancelled on `32929f5`; `tests/repo-setup.test.ts` "CI runs on a pull request into develop or release ...", which failed on `['**']` first.
+
+## D-100: The README names no other tools
+- Date / Step: 2026-11-03 / after step 8        Status: accepted (the owner: "why the hell do i mention any other rival projects?")
+- Decision: The README no longer has the line saying other tools use the name "Aegis". This replaces the README part of D-081; the rest of D-081 stands, and the spec's note on the name keeps the facts.
+- Why: The line sent readers to direct competitors. The repo name `aegiscontext` and the README's own pitch already set the tool apart.
+- Rejected: Keeping the line (D-081's reason: confusion with tools of a similar name).
+- Evidence: D-081; spec, "About the name".
+
+## D-101: The docs: the main goal in the spec, guides split from the engineering record, limits framed as scope
+- Date / Step: 2026-11-03 / after step 8 (docs only, on `develop` by the owner's choice)        Status: accepted (the owner approved the plan)
+- Decision: (1) Spec section 2 opens with the owner's main goal: find every secret with a known shape or a label, let people register the rest, and be easy to use with every feature they need. (2) The engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) moves to `docs/engineering/`; the guides stay in `docs/`, with an index page in each folder. (3) Spec section 22 becomes "Scope and known limits", grouped as outside the goal by design, set by Claude Code, and edges of the tool's own safeguards and optional parts. Every limit and fact stays. (4) The docs say what the evidence says and no more, in both directions: the catch rate is given as 135 of 138 with what the 3 are, self-protection's command check is not called unbeatable, and a compaction summary under the built-in guard is described as measured (held by the resume check). (5) Tone edits only, facts unchanged, in this log: D-002 ("weaker guarantees"), and the label "Weak spot" becomes "Open point" in D-036, D-037 and D-055.
+- Why: The owner wants the public repo to read as a complete tool without overstating anything. Items outside the goal were written as if they were failures, and the guides sat next to the working record.
+- Rejected: Leaving the record in `docs/` with only an index page (no test edits, but the folder stays mixed); removing limits from the docs (`SECURITY.md` uses section 22 to tell a known limit from a vulnerability).
+- Tests: path edits only in `tests/docs.test.ts`, `tests/release-files.test.ts`, `tests/step0-findings.test.ts` and `tests/targets.test.ts`; the canary scan now reaches `docs/engineering/`; two phrases `tests/docs.test.ts` looks for follow the new wording, and both still require skill text to be named. Approved by the owner on 2026-11-03.
+- Evidence: spec sections 2, 3, 6 and 22; `docs/scores.md`; `tests/core-redact.test.ts` (the 3 misses); D-055.
 
 ---
 
