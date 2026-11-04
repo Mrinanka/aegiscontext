@@ -4,20 +4,21 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 
 ## Before a release candidate (`v0.1.0-rc.<n>`)
 
-`v0.1.0-rc.1` and `v0.1.0-rc.2` (published 2026-11-03) went through this list. These are for `v0.1.0-rc.3`: Claude Code 2.1.317 tested and pinned (D-102), and the untested-version warning shown on the first 2 sessions per version (D-103). A later release candidate starts the list again.
+`v0.1.0-rc.1`, `v0.1.0-rc.2` (published 2026-11-03) and `v0.1.0-rc.3` (published 2026-11-04) went through this list. These are for `v0.1.0-rc.4`: Claude Code 2.1.310, 2.1.311, 2.1.312, 2.1.315 and 2.1.318 on the tested list through the new CI check (#24), and the release workflow's draft step fixed (#21). A later release candidate starts the list again.
 
 If a macOS job is cancelled with "The job was not acquired by Runner of type hosted", GitHub had no macOS runner free. Use "Re-run failed jobs" on that run; nothing in the code failed.
 
-- [x] PR #17 is green in CI on the three systems on the new pin, 2.1.317 (all 10 checks, 2026-11-04).
-- [ ] PR #17 is merged into `develop`, and `develop` is green in CI after the merge.
-- [ ] The weekly run (`.github/workflows/weekly.yml`) runs on its schedule from `release`. `schedule` and `workflow_dispatch` only work for the default branch, and GitHub switches a scheduled workflow off after 60 days with no repository activity: re-enable it from the Actions tab if it was.
-- [x] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts` (all `0.1.0`), and `CHANGELOG.md` has a `0.1.0-rc.3` section.
-- [x] `docs/tested-versions.md` and `docs/scores.md` are current for this release (`npm run measure` re-run 2026-11-04; only the two speed rows moved).
+- [x] PR #24 was green before it was merged: all 15 "Tested versions" jobs (5 versions on 3 systems) and CI (2026-11-04).
+- [ ] The maintainer's hand check of the VS Code extension and the desktop app's Code tab on the versions #24 added (record which version each one runs).
+- [ ] PR #25 (the slow R-12 test) is merged into `develop`, and `develop` is green in CI after the merge.
+- [x] The weekly run (`.github/workflows/weekly.yml`) is active (`gh workflow list --all`, 2026-11-04). `schedule` and `workflow_dispatch` only work for the default branch, and GitHub switches a scheduled workflow off after 60 days with no repository activity: re-enable it from the Actions tab if it was.
+- [x] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts` (all `0.1.0`), and `CHANGELOG.md` has a `0.1.0-rc.4` section.
+- [x] `docs/tested-versions.md` and `docs/scores.md` are current for this release. `npm run measure` re-run 2026-11-04: the catch set, code set and false alarms are unchanged; the checker has not changed since rc.3, and the speed rows moved within run-to-run noise.
 - [x] Private vulnerability reporting is on (`gh api repos/Mrinanka/aegiscontext/private-vulnerability-reporting` says `enabled`, checked 2026-11-04).
-- [ ] The merge of `develop` into `release` (a PR; if its run cancels `develop`'s merge run, rerun the cancelled run once the PR run passes, see progress "Known issues").
-- [ ] `npm run release:pack -- v0.1.0-rc.3` on a clean tree (see below).
-- [ ] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v v0.1.0-rc.3` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
-- [ ] The draft release is reviewed and published by the maintainer.
+- [ ] The merge of `develop` into `release` (PR #23, with "Create a merge commit": a ruleset on `release` allows only that; if its run cancels `develop`'s merge run, rerun the cancelled run once the PR run passes).
+- [ ] `npm run release:pack -- v0.1.0-rc.4` on a clean tree (see below).
+- [ ] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v v0.1.0-rc.4` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
+- [ ] The draft release is made by the workflow (the first since #21), then reviewed and published by the maintainer.
 
 ## Before `v0.1.0`
 

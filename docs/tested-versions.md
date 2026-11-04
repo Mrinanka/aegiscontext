@@ -2,13 +2,13 @@
 
 AegisContext hooks into Claude Code, so it is only as good as the Claude Code it was tested with. This list is published with each release and is the same list `/redact doctor` and the session-start warning use (`src/core/versions.ts`).
 
-AegisContext is tested in real day-to-day development by its maintainer, and that testing goes on with each new Claude Code release. The latest is 2.1.317: in the terminal, the VS Code extension and the desktop app's Code tab, on Windows and on macOS/Linux, hiding works as expected.
+AegisContext is tested in real day-to-day development by its maintainer, and that testing goes on with each new Claude Code release. The latest is 2.1.318: in the terminal, the VS Code extension and the desktop app's Code tab, on Windows and on macOS/Linux, hiding works as expected.
 
 ## How a version joins the list
 
 A pull request adds it to `src/core/versions.ts`. CI then runs the plugin tests and the whole leak test kit on that exact version, on macOS, Windows and Linux (`.github/workflows/versions.yml`). CI can run only the CLI, so before merging the maintainer checks the VS Code extension and the desktop app's Code tab by hand.
 
-## Since v0.1.0-rc.3
+## v0.1.0-rc.4
 
 | Claude Code | Where | How it was checked |
 |---|---|---|
