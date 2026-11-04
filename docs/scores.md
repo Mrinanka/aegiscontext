@@ -1,6 +1,6 @@
 # Scores
 
-What the tool catches, what it wrongly hides, and how fast it is, for this release (v0.1.0-rc.3). Produced by `npm run measure` (Node 24.22.1, a Windows 11 PC; CI prints the same numbers on macOS and Linux). The targets and how they were set are in [targets.md](engineering/targets.md).
+What the tool catches, what it wrongly hides, and how fast it is, for this release (v0.1.0-rc.4). Produced by `npm run measure` (Node 24.22.1, a Windows 11 PC; CI prints the same numbers on macOS and Linux). The targets and how they were set are in [targets.md](engineering/targets.md).
 
 | What | Result | Target |
 |---|---|---|

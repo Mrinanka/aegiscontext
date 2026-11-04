@@ -71,4 +71,4 @@ jobs:
         run: |
           flags="--draft"
           case "$TAG" in *-rc.*) flags="$flags --prerelease" ;; esac
-          gh release create "$TAG" dist/release/* $flags --title "$TAG" --notes "See CHANGELOG.md. Check the tag and the archives before use: docs/verify.md, "Check a release"."
+          gh release create "$TAG" dist/release/* $flags --title "$TAG" --notes "See CHANGELOG.md. Check the tag and the archives before use: docs/verify.md, 'Check a release'."

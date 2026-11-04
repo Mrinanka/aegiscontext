@@ -103,6 +103,12 @@ test('the release workflow runs on tags, calls CI first, and makes a draft', () 
   assert.match(read('.github', 'workflows', 'ci.yml'), /workflow_call:/)
 })
 
+test('the draft release notes are one shell word: a quote inside them would hand gh extra "files" and fail the draft', () => {
+  const line = read('.github', 'workflows', 'release.yml').split('\n').find(l => l.includes('gh release create')) ?? ''
+  const notes = /--notes (.*)$/.exec(line.trim())?.[1] ?? ''
+  assert.match(notes, /^"[^"]+"$/, `--notes must be one double-quoted string with no " inside: ${notes}`)
+})
+
 test('the limits of the backup lock name skill text wherever they are listed (the kit proves it leaks there)', () => {
   const says = (text: string, needle: string): boolean => text.split('\n').some(l => l.includes(needle) && /skill text/.test(l))
   const spec = read('docs', 'engineering', 'spec.md')

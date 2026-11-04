@@ -2,6 +2,18 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org). A change to a default is called out under **Changed defaults**.
 
+## 0.1.0-rc.4 (release candidate)
+
+### Changed
+
+- Claude Code 2.1.310, 2.1.311, 2.1.312, 2.1.315 and 2.1.318 are on the tested list. A version now joins it through a pull request whose CI runs the plugin tests and the whole leak test kit on that version on macOS, Windows and Linux, plus the maintainer's check in the VS Code extension and the desktop app.
+
+### Release
+
+- The release workflow makes the draft release again. For `v0.1.0-rc.3` it failed at that step, and the draft was made by hand from the same files.
+
+No default changed.
+
 ## 0.1.0-rc.3 (release candidate)
 
 ### Changed
