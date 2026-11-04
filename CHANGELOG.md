@@ -9,6 +9,10 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org). 
 - Claude Code 2.1.317 is on the tested list and is the version CI tests (D-102).
 - The "not on the tested list" warning shows on the first two sessions with a new Claude Code version, not on every session. `/redact doctor` still says it (D-103).
 
+### Fixed
+
+- An AWS access key is now hidden whatever its letters. The rule from Gitleaks skipped a key whose characters repeat enough to score 3 or less on its randomness check, about 1 key in 2,000. The leak test caught one on CI (D-104).
+
 ### Docs
 
 - The engineering record (spec, plan, decision log, progress, Step 0 findings, release checklist, design choices, targets) is now in `docs/engineering/`. The guides stay in `docs/`, with an index page.
