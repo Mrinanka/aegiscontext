@@ -1,0 +1,112 @@
+name: Tested versions
+
+# A pull request that adds Claude Code versions to the tested list (src/core/versions.ts) runs the plugin tests and the
+# whole leak test kit on each added version, on macOS, Windows and Linux: the same steps as the weekly run. CI runs the
+# CLI only, so the maintainer checks the VS Code extension and the desktop app by hand before merging.
+# Read-only and no secret: the kit uses a mock API and a made-up key. A version reaches a shell only through env.
+# If the slow R-12 plugin test times out on macOS (a known issue), re-run the failed job.
+on:
+  pull_request:
+    branches: [develop, release]
+    paths:
+      - 'src/core/versions.ts'
+      - '.github/workflows/versions.yml'
+      - 'tools/ci/added-versions.ts'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: versions-${{ github.event.pull_request.head.repo.full_name }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  added:
+    name: Versions this pull request adds
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.list.outputs.versions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - id: list
+        name: List the added versions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node tools/ci/added-versions.ts "$BASE_SHA" >> "$GITHUB_OUTPUT"
+
+  kit:
+    name: Claude Code ${{ matrix.version }} (${{ matrix.os }})
+    needs: added
+    if: needs.added.outputs.versions != '[]'
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.added.outputs.versions) }}
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ matrix.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # The install scripts stay off, as for the pin: the package's own bin is a stub, so the platform binary is run directly.
+      - name: Install this Claude Code
+        shell: bash
+        run: |
+          mkdir "$RUNNER_TEMP/claude-under-test"
+          cd "$RUNNER_TEMP/claude-under-test"
+          echo '{"private":true}' > package.json
+          npm install --ignore-scripts --no-audit --no-fund --save-exact "@anthropic-ai/claude-code@$VERSION"
+          node -e '
+            const fs = require("node:fs"), path = require("node:path")
+            const exe = process.platform === "win32" ? "claude.exe" : "claude"
+            const bin = path.join(process.cwd(), "node_modules", "@anthropic-ai", `claude-code-${process.platform}-${process.arch}`, exe)
+            if (!fs.existsSync(bin)) { console.error("no platform binary at " + bin); process.exit(1) }
+            fs.appendFileSync(process.env.GITHUB_ENV, "CLAUDE_UNDER_TEST=" + bin + "\n")
+            fs.appendFileSync(process.env.GITHUB_PATH, path.dirname(bin) + "\n")
+          '
+      - name: Is it the version asked for?
+        shell: bash
+        run: |
+          got="$("$CLAUDE_UNDER_TEST" --version)"
+          echo "$got"
+          case "$got" in
+            "$VERSION "*) ;;
+            *) echo "expected Claude Code $VERSION"; exit 1 ;;
+          esac
+      - name: Validate the plugin
+        run: claude plugin validate ./plugin
+      - name: Plugin tests
+        run: claude plugin test ./plugin
+      - name: Leak test baseline (the kit can still see)
+        run: npm run leak-test:baseline -- --claude "${{ env.CLAUDE_UNDER_TEST }}"
+      - name: Rewrite test (a mod rewrites a Write and an Edit before the tool runs)
+        run: node --test tests/rewrite-real.test.ts
+        env:
+          AEGIS_CLAUDE: ${{ env.CLAUDE_UNDER_TEST }}
+      - name: Leak test, every door
+        run: npm run leak-test -- --claude "${{ env.CLAUDE_UNDER_TEST }}"
+      - name: Leak test, put-back on
+        run: npm run leak-test:put-back -- --claude "${{ env.CLAUDE_UNDER_TEST }}"
+      - name: Leak test, put-back off
+        run: npm run leak-test:put-back-off -- --claude "${{ env.CLAUDE_UNDER_TEST }}"
+      - name: Leak test, backup lock
+        run: npm run leak-test:backup -- --claude "${{ env.CLAUDE_UNDER_TEST }}"
+      - name: Leak test, backup lock limits
+        run: npm run leak-test:backup-limits -- --claude "${{ env.CLAUDE_UNDER_TEST }}"
+      - name: Leak test, user plugin under a Team login
+        run: npm run leak-test:guarded-login -- --claude "${{ env.CLAUDE_UNDER_TEST }}"
