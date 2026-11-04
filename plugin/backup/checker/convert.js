@@ -42,6 +42,11 @@ export const REWRITES = new Map([
         'sourcegraph-access-token',
         { why: 'upstream also matches any 40 hex characters, which is every git hash and leaves no keyword; the sgp_ forms are kept', replace: ['|sgp_[a-fA-F0-9]{40}|[a-fA-F0-9]{40})', '|sgp_[a-fA-F0-9]{40})'] },
     ],
+    [
+        'aws-access-token',
+        // D-104: a random key falls under the floor about 1 time in 2,000; the leak kit's AWS fake did on CI.
+        { why: 'upstream skips a match with entropy of 3 or less, which drops about 1 in 2,000 random keys; a fixed prefix and exactly 16 base32 characters are specific enough without it, and the EXAMPLE allowlist stays', entropy: 'none' },
+    ],
 ]);
 export const labelOf = (id) => id.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase();
 export function toSpec(source) {
@@ -142,7 +147,7 @@ export function convertRule(raw, costLimit = COST_REJECT, baseCap = CAP) {
         spansLines: a.spansLines,
         allow: (raw.allowlists ?? []).map(x => convertAllow(x, warnings, raw.id)).filter((x) => x !== null),
     };
-    if (raw.entropy !== undefined && raw.entropy !== 0)
+    if (raw.entropy !== undefined && raw.entropy !== 0 && rewrite?.entropy !== 'none')
         rule.entropy = raw.entropy;
     if (rewrite?.requiresBefore)
         rule.requiresBefore = rewrite.requiresBefore;

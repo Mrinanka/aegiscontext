@@ -127,6 +127,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
 | D-102 | Claude Code 2.1.317 is the pin and joins the tested list | accepted | after 8 | none |
 | D-103 | The untested-version warning shows on the first 2 session starts per version | accepted | after 8 | 4 (R-01) |
+| D-104 | `aws-access-token` drops Gitleaks' entropy floor | accepted | after 8 | none |
 
 ## Entry template (short form, from D-018 on)
 
@@ -974,6 +975,13 @@ Tiny clarifications go under **Minor** at the bottom.
 - Why: it showed on every session start, and stable 2.1.311 users would see it each time until a release lists their version.
 - Rejected: once per version (easy to miss in one short session); letting `notices: off` hide it (people must find the setting, and it hides other notices); no change.
 - Evidence: `plugin/hooks/handlers.ts` `startUp` called `warn` on every start; `runtime.ts` already keeps `lastGood` in `$.store`; `plugin/hooks/lock.test.ts` "R-01: the warning shows on the first 2 session starts ..." fails with the limit at 99; `tests/core-lock.test.ts` covers damaged records and the cap.
+
+## D-104: `aws-access-token` drops Gitleaks' entropy floor
+- Date / Step: 2026-11-04 / after 8        Status: accepted (the owner's choice: "Fix first, then tag", before `v0.1.0-rc.3`).
+- Decision: the `REWRITES` table in `src/checker/convert.ts` gains `aws-access-token` with `entropy: 'none'`, so the built rule has no entropy check. The pattern (a fixed prefix and exactly 16 base32 characters) and the `EXAMPLE` allowlist are unchanged. Other rules keep upstream's floor.
+- Why: upstream skips a match whose Shannon entropy is 3 or less. A random key falls under it about 1 time in 2,000, and a real key is as random as a fake. `release`'s CI run 41708634540 (2026-11-03, `leak-test:org`, Windows) saw 1 of 7 fakes at `bash-failed`: the AWS one.
+- Rejected: tagging rc.3 first and fixing in rc.4 (a known miss in the release, and the tag's CI could fail on it at random); making the kit's fake generator skip low-entropy keys (hides a real miss).
+- Evidence: a scratch run of the checker over 20,000 kit AWS fakes missed 6 to 10, each with entropy 2.84 to 2.96 and no finding; after the change, 0 of 50,000. `npm run measure`: catch set and every false-alarm figure unchanged (5.55, 76.30, 214.33 per MB). `tests/checker-hardening.test.ts` "aws-access-token has no entropy floor ..." failed before the change.
 
 ---
 

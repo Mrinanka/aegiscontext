@@ -321,6 +321,25 @@ test('differential: the hand-rewritten rules find what upstream finds', () => {
   }
 })
 
+test('aws-access-token has no entropy floor: a low-entropy key is hidden, and the documented EXAMPLE key stays allowed', () => {
+  const { checker } = createChecker()
+  const awsHit = (text: string, v: string) => checker.scan(text).findings.some(f => f.ruleId === 'aws-access-token' && text.slice(f.start, f.end) === v)
+  // Built from pieces: a key of the right shape whose entropy is about 2.35, under upstream's floor of 3.
+  const low = ['AK', 'IA', 'ABABABAB', 'CDCDCDCD'].join('')
+  assert.ok(awsHit(`Error: ${low}\n`, low), 'a low-entropy key')
+  // The kit's random AWS fakes: about 1 in 2,000 fell under the floor before this change.
+  const src = seededSource('aws-entropy')
+  for (let i = 0; i < 3000; i++) {
+    const v = makeFake('aws-access-key', src).value
+    assert.ok(awsHit(`Error: ${v}\n`, v), `seeded fake ${i}`)
+  }
+  const example = ['AK', 'IA', 'IOSFODNN7', 'EXAMPLE'].join('')
+  assert.equal(awsHit(`key ${example}\n`, example), false, 'the EXAMPLE allowlist still applies')
+  const raw = raws.find(r => r.id === 'aws-access-token') as RawRule
+  assert.equal(raw.entropy, 3, 'upstream still sets the floor; the rewrite is what removes it')
+  assert.equal((RULES.find(r => r.id === 'aws-access-token') as { entropy?: number }).entropy, undefined)
+})
+
 test('a sample cut below a rule\'s shortest possible match is not found', () => {
   for (const rule of RULES) {
     const raw = raws.find(r => r.id === rule.id) as RawRule

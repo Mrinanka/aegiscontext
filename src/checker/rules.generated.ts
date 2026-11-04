@@ -425,7 +425,6 @@ export const RULES: CompiledRule[] = [
     "and": false
    }
   ],
-  "entropy": 3,
   "keywordNote": "same"
  },
  {
