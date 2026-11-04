@@ -4,20 +4,21 @@ For the maintainer. The tool never merges, tags or holds a signing key.
 
 ## Before a release candidate (`v0.1.0-rc.<n>`)
 
-`v0.1.0-rc.1`, `v0.1.0-rc.2` (published 2026-11-03) and `v0.1.0-rc.3` (published 2026-11-04) went through this list. These are for `v0.1.0-rc.4`: Claude Code 2.1.310, 2.1.311, 2.1.312, 2.1.315 and 2.1.318 on the tested list through the new CI check (#24), and the release workflow's draft step fixed (#21). A later release candidate starts the list again.
+`v0.1.0-rc.1`, `v0.1.0-rc.2` (published 2026-11-03) and `v0.1.0-rc.3` (published 2026-11-04) went through this list. `v0.1.0-rc.4` was tagged (signed, 2026-11-04) but never released: its Release run got no macOS runner in 8 attempts (see below). These are for `v0.1.0-rc.5`, which carries rc.4's changes (Claude Code 2.1.310, 2.1.311, 2.1.312, 2.1.315 and 2.1.318 on the tested list through the new CI check #24, and the release workflow's draft step fixed #21) and adds 40 own key rules (D-105, #28). A later release candidate starts the list again.
 
-If a macOS job is cancelled with "The job was not acquired by Runner of type hosted", GitHub had no macOS runner free. Use "Re-run failed jobs" on that run; nothing in the code failed.
+If a macOS job is cancelled with "The job was not acquired by Runner of type hosted", GitHub had no macOS runner free ("Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times"). Use "Re-run failed jobs" on that run; nothing in the code failed. Several CI runs at once compete for the same few macOS runners: a tag push starts the Release run (CI plus the README install) and a merge starts `develop`'s or `release`'s own CI, so for rc.4 four re-runs were cancelled with no step run. Before tagging, let the merge's CI on `release` finish, and cancel any older queued Release run.
 
-- [x] PR #24 was green before it was merged: all 15 "Tested versions" jobs (5 versions on 3 systems) and CI (2026-11-04).
+- [ ] PR #28 (own key rules) is green in CI on the three systems and merged into `develop`, and `develop` is green in CI after the merge.
+- [ ] The queued Release run for `v0.1.0-rc.4` (run 41851610950, attempt 8) is cancelled, so it does not hold a macOS runner. The `v0.1.0-rc.4` tag stays as it is; it is never moved or re-made.
+- [ ] The hand check for the own key rules: paste a pieced-together fake OpenRouter key into a prompt with the plugin loaded and see the placeholder.
 - [ ] The maintainer's hand check of the VS Code extension and the desktop app's Code tab on the versions #24 added (record which version each one runs).
-- [ ] PR #25 (the slow R-12 test) is merged into `develop`, and `develop` is green in CI after the merge.
 - [x] The weekly run (`.github/workflows/weekly.yml`) is active (`gh workflow list --all`, 2026-11-04). `schedule` and `workflow_dispatch` only work for the default branch, and GitHub switches a scheduled workflow off after 60 days with no repository activity: re-enable it from the Actions tab if it was.
-- [x] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts` (all `0.1.0`), and `CHANGELOG.md` has a `0.1.0-rc.4` section.
-- [x] `docs/tested-versions.md` and `docs/scores.md` are current for this release. `npm run measure` re-run 2026-11-04: the catch set, code set and false alarms are unchanged; the checker has not changed since rc.3, and the speed rows moved within run-to-run noise.
+- [x] The versions agree: `package.json`, `plugin/.claude-plugin/plugin.json`, `plugin/hooks/marker.ts` (all `0.1.0`), and `CHANGELOG.md` has a `0.1.0-rc.5` section.
+- [x] `docs/tested-versions.md` and `docs/scores.md` are current for this release. `npm run measure` re-run 2026-11-05 with the 40 own rules: catch set 135 of 138, code set 41 of 41, twins 81 of 81 and every false-alarm figure unchanged (5.55, 76.30, 214.33 per MB); the speed rows moved within run-to-run noise.
 - [x] Private vulnerability reporting is on (`gh api repos/Mrinanka/aegiscontext/private-vulnerability-reporting` says `enabled`, checked 2026-11-04).
-- [ ] The merge of `develop` into `release` (PR #23, with "Create a merge commit": a ruleset on `release` allows only that; if its run cancels `develop`'s merge run, rerun the cancelled run once the PR run passes).
-- [ ] `npm run release:pack -- v0.1.0-rc.4` on a clean tree (see below).
-- [ ] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v v0.1.0-rc.4` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
+- [ ] The merge of `develop` into `release` (a PR, with "Create a merge commit": a ruleset on `release` allows only that; if its run cancels `develop`'s merge run, rerun the cancelled run once the PR run passes).
+- [ ] `npm run release:pack -- v0.1.0-rc.5` on a clean tree (see below).
+- [ ] The tag is **signed** by the maintainer on the tip of `release` (the README install job refuses any other commit), and `git tag -v v0.1.0-rc.5` says `Good signature`. The release workflow runs CI and makes a **draft** release. It does not check the signature.
 - [ ] The draft release is made by the workflow (the first since #21), then reviewed and published by the maintainer.
 
 ## Before `v0.1.0`
