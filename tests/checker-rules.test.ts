@@ -10,6 +10,7 @@ import path from 'node:path'
 import { createChecker, LABEL_RULE_ID, TRUNCATED_KEY_RULE_ID, URL_RULE_ID } from '../src/checker/index.ts'
 import { ruleSource, toSpec } from '../src/checker/convert.ts'
 import { parse } from '../src/checker/re/parse.ts'
+import { OWN_RULES } from '../src/checker/own-rules.generated.ts'
 import { REJECTIONS, RULES, BUILD_WARNINGS, GITLEAKS_COMMIT, GITLEAKS_VERSION, GLOBAL_ALLOW } from '../src/checker/rules.generated.ts'
 import { expected, TOML_PATH } from '../tools/rules/build.ts'
 import { parseToml } from '../tools/rules/toml.ts'
@@ -95,7 +96,7 @@ test('the global true|false|null allowlist is anchored: a value merely holding "
 
 // ---- one set of tests per rule ----------------------------------------------------------
 
-const others = (id: string): string[] => [...RULES.map(r => r.id).filter(x => x !== id), ...INTERNAL]
+const others = (id: string): string[] => [...RULES.map(r => r.id).filter(x => x !== id), ...OWN_RULES.map(r => r.id), ...INTERNAL]
 const MAX_TRIES = 120
 
 for (const rule of RULES) {

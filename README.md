@@ -101,4 +101,4 @@ Check a download or run the leak tests yourself: [docs/verify.md](docs/verify.md
 
 ## Licence
 
-Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)). The detection rules are the [Gitleaks](https://github.com/gitleaks/gitleaks) rule set (MIT), credited in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES). Provided "as is".
+Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)). The detection rules are the [Gitleaks](https://github.com/gitleaks/gitleaks) rule set (MIT), credited in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES), plus its own rules. Provided "as is".

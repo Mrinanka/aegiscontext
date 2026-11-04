@@ -9,6 +9,7 @@ import { checkAuthHeader, checkBearer, checkCommandPassword } from './credential
 import { checkLabel, checkUrlPassword, LABELS, type LabelDef } from './labels.ts'
 import { scanPersonal } from './personal.ts'
 import { checkTruncatedKey } from './private-key.ts'
+import { OWN_RULES } from './own-rules.generated.ts'
 import { GLOBAL_ALLOW, RULES } from './rules.generated.ts'
 import type { Action, AllowList, CompiledRule, Finding, RegexSpec, Rejection, ScanResult } from './types.ts'
 
@@ -167,7 +168,8 @@ export function createChecker(options: CheckerOptions = {}): { checker: Checker;
   // Own keys only: `constructor` is a valid rule id, and a plain lookup of it finds a function.
   const actionOf = (id: string): Action => (Object.hasOwn(actions, id) ? (actions[id] as Action) : 'hide')
 
-  for (const rule of RULES) {
+  // The Gitleaks rules, then AegisContext's own for keys Gitleaks lacks (D-105): same kind, same switches.
+  for (const rule of [...RULES, ...OWN_RULES]) {
     if (off.has(rule.id)) continue
     runtimes.push({ rule, kind: 'format', action: actionOf(rule.id), re: null, pathRe: undefined, leadingRe: undefined })
   }

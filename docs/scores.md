@@ -20,4 +20,4 @@ What the tool catches, what it wrongly hides, and how fast it is, for this relea
 - **The sets are ours, and public.** The catch set (138 cases of the formats and contexts we thought of) and the log-like set were written by the person who tuned the checker, so read them as our own benchmark, not an independent one. Anyone can rerun them with `npm run measure`. An independent hidden test set is parked for after v1 (spec section 23).
 - **Log noise is mostly on purpose.** 136 of the 225 log-set false alarms are 32-hex values after `key=`; many real API keys look the same, so they stay hidden on purpose.
 - **One computer.** Speed was measured on one machine. A session also pays for starting Claude Code's hook process; on Windows with saved secrets the backup lock starts PowerShell for about a second per hook that acts.
-- **Rules.** 219 of the 222 Gitleaks v8.30.1 rules are used. Three are left out and why is in the decision log (D-032, D-038).
+- **Rules.** 219 of the 222 Gitleaks v8.30.1 rules are used. Three are left out and why is in the decision log (D-032, D-038). AegisContext adds 40 rules of its own for popular keys Gitleaks lacks (D-105).
