@@ -189,10 +189,13 @@ for (const [name, call] of [
   })
 }
 
-test('R-12: a check that could not finish hides what it found and warns; hold withholds', async ($, on) => {
+// The decoder must pass its fixed per-layer limit (8M units, src/core/decoder.ts), so this test is slow by nature:
+// about 3 s on Windows, and up to twice that on GitHub's macOS machines. Hence the longer time limit.
+test('R-12: a check that could not finish hides what it found and warns; hold withholds', { timeoutMs: 30_000 }, async ($, on) => {
   const w = world(on, { on_check_failure: 'hold' })
   // More decoded text than one layer may hold, so the decoder stops: a check failure with no timing in it.
-  await $.session.append(toolResult(`${FAKE} ${'x%41 \\n'.repeat(1_400_000)}`))
+  // Each repeat decodes to 11 units, so 800,000 make 8.8M, 10% past the limit, from 5.6M characters.
+  await $.session.append(toolResult(`${FAKE} ${'x%41 \\n'.repeat(800_000)}`))
   const stored = JSON.stringify(w.session.appended())
   expect(stored.includes('withheld')).toBe(true)
   expect(failureLines(w).length > 0).toBe(true)
