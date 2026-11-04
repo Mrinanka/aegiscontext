@@ -39,6 +39,8 @@ type Rewrite = {
   cap?: number
   keywords?: string[]
   requiresBefore?: { word: string; within: number }
+  /** `none`: upstream's entropy floor is dropped, because the pattern alone is specific enough. */
+  entropy?: 'none'
 }
 const AFTER_CURL = { word: 'curl', within: 1000 }
 const CURL_WHY = 'upstream nests repeats around "." to span up to 5 lines; the match now starts at the flag, and "curl" is looked for in the 1000 characters before it'
@@ -57,6 +59,11 @@ export const REWRITES = new Map<string, Rewrite>([
   [
     'sourcegraph-access-token',
     { why: 'upstream also matches any 40 hex characters, which is every git hash and leaves no keyword; the sgp_ forms are kept', replace: ['|sgp_[a-fA-F0-9]{40}|[a-fA-F0-9]{40})', '|sgp_[a-fA-F0-9]{40})'] },
+  ],
+  [
+    'aws-access-token',
+    // D-104: a random key falls under the floor about 1 time in 2,000; the leak kit's AWS fake did on CI.
+    { why: 'upstream skips a match with entropy of 3 or less, which drops about 1 in 2,000 random keys; a fixed prefix and exactly 16 base32 characters are specific enough without it, and the EXAMPLE allowlist stays', entropy: 'none' },
   ],
 ])
 
@@ -150,7 +157,7 @@ export function convertRule(raw: RawRule, costLimit = COST_REJECT, baseCap = CAP
     spansLines: a.spansLines,
     allow: (raw.allowlists ?? []).map(x => convertAllow(x, warnings, raw.id)).filter((x): x is AllowList => x !== null),
   }
-  if (raw.entropy !== undefined && raw.entropy !== 0) rule.entropy = raw.entropy
+  if (raw.entropy !== undefined && raw.entropy !== 0 && rewrite?.entropy !== 'none') rule.entropy = raw.entropy
   if (rewrite?.requiresBefore) rule.requiresBefore = rewrite.requiresBefore
   if (path) rule.path = path
   if (leading) {

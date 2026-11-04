@@ -422,7 +422,6 @@ export const RULES = [
                 "and": false
             }
         ],
-        "entropy": 3,
         "keywordNote": "same"
     },
     {
