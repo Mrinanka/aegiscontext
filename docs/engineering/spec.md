@@ -156,7 +156,7 @@ Six checks, run in one pass over the text:
 
 | # | Check | Catches | Example |
 |---|---|---|---|
-| 1 | Known key formats | Keys with a fixed shape, from the Gitleaks rule set (pinned version; see section 21) | AWS, Azure, GitHub, GitLab, Slack, Stripe, JFrog, Databricks keys |
+| 1 | Known key formats | Keys with a fixed shape, from the Gitleaks rule set (pinned; see section 21) and AegisContext's own rules for common keys Gitleaks lacks (`src/checker/own-rules.ts`) | AWS, Azure, GitHub, GitLab, Slack, Stripe, JFrog, Databricks keys |
 | 2 | Password labels | A value after a clear label, short or simple, quoted or not | `password=Autumn2026`, `pw: hunter2`, `DB_PASSWORD="..."`, `Password=` inside a connection string |
 | 3 | Your own secrets | Exact values the user registered | Any format, including internal company token formats |
 | 4 | Once caught, always caught | A secret seen earlier in the session, wherever it shows up again | The same key later in a log without its label |

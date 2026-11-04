@@ -8,6 +8,10 @@ AegisContext is tested in real day-to-day development by its maintainer, and tha
 
 A pull request adds it to `src/core/versions.ts`. CI then runs the plugin tests and the whole leak test kit on that exact version, on macOS, Windows and Linux (`.github/workflows/versions.yml`). CI can run only the CLI, so before merging the maintainer checks the VS Code extension and the desktop app's Code tab by hand.
 
+## v0.1.0-rc.5
+
+The same list as the release before it, below: no Claude Code version was added.
+
 ## v0.1.0-rc.4
 
 | Claude Code | Where | How it was checked |

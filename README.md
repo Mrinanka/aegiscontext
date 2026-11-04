@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/media/aegiscontext-icon.png" alt="AegisContext logo" width="120"></p>
+
 # AegisContext
 
 **Keep API keys, passwords and tokens out of Claude's context.** AegisContext is a [Claude Code](https://claude.com/claude-code) plugin that swaps each secret for a placeholder before the model sees it. Claude keeps working: it knows a secret is there, but never sees the value.
@@ -101,4 +103,4 @@ Check a download or run the leak tests yourself: [docs/verify.md](docs/verify.md
 
 ## Licence
 
-Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)). The detection rules are the [Gitleaks](https://github.com/gitleaks/gitleaks) rule set (MIT), credited in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES). Provided "as is".
+Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)). The detection rules are the [Gitleaks](https://github.com/gitleaks/gitleaks) rule set (MIT), credited in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES), plus its own rules. Provided "as is".
