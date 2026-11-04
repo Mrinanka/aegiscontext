@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/media/aegiscontext-icon.png" alt="AegisContext logo" width="120"></p>
+
 # AegisContext
 
 **Keep API keys, passwords and tokens out of Claude's context.** AegisContext is a [Claude Code](https://claude.com/claude-code) plugin that swaps each secret for a placeholder before the model sees it. Claude keeps working: it knows a secret is there, but never sees the value.
