@@ -10,7 +10,7 @@ A pull request adds it to `src/core/versions.ts`. CI then runs the plugin tests 
 
 ## v0.1.0-rc.5
 
-The same list as `v0.1.0-rc.4`, below: no Claude Code version was added. `v0.1.0-rc.4` was tagged but never released, so this release is the first with that list.
+The same list as `v0.1.0-rc.4`, below: no Claude Code version was added.
 
 ## v0.1.0-rc.4
 
