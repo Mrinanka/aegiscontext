@@ -57,7 +57,7 @@ When a developer types a message, or Claude reads a file or command output, the 
 | **Systems** | macOS, Windows and Linux, all first-class. That includes WSL and devcontainers. CI runs on all three. |
 | **Claude Code versions** | A **tested versions** list is published with each release (section 20). v1 supports the Claude Code version pinned for testing (and newer, with the R-01 warning). Hunting for the lowest working version is parked (section 23, D-019). Earlier figures (2.1.287 for mods, 2.1.295 for "block if this check fails") were never checked, and won't be in v1 (section 23). Step 0 was checked against 2.1.316. The VS Code extension runs its own copy of Claude Code, which can be a different version from the CLI (2.1.314 when the CLI was 2.1.316); the tested-versions list names both. |
 
-- **R-01** At session start, the tool **must** show a one-line warning when the Claude Code version is not on its tested list, and keep working.
+- **R-01** At session start, the tool **must** show a one-line warning when the Claude Code version is not on its tested list, and keep working. It shows on the first 2 session starts with each such version; after that, `/redact doctor` still says it every time (D-103).
 
 ## 5. How it is built: a main lock and a backup lock
 

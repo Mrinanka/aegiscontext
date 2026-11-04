@@ -125,6 +125,8 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-097 | A broken managed block does not turn put-back off | accepted | 8 | 10 |
 | D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
 | D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
+| D-102 | Claude Code 2.1.317 is the pin and joins the tested list | accepted | after 8 | none |
+| D-103 | The untested-version warning shows on the first 2 session starts per version | accepted | after 8 | 4 (R-01) |
 
 ## Entry template (short form, from D-018 on)
 
@@ -958,6 +960,20 @@ Tiny clarifications go under **Minor** at the bottom.
 - Rejected: one concurrency group per event (both runs finish, but every push to a PR branch runs CI twice); keeping the workflow and rerunning the cancelled push run by hand after each push.
 - Consequence: a wip push to a step branch before its PR exists gets no CI. Open the PR, or push to it, to see CI.
 - Evidence: `develop`'s branch protection (`gh api .../branches/develop/protection`: 10 required contexts, `strict`); PR #9 `mergeStateStatus: BLOCKED` with run 41635323874 (pull_request) green and run 41635316122 (push) cancelled on `32929f5`; `tests/repo-setup.test.ts` "CI runs on a pull request into develop or release ...", which failed on `['**']` first.
+
+## D-102: Claude Code 2.1.317 is the pin and joins the tested list
+- Date / Step: 2026-11-04 / after 8        Status: accepted (the owner's choice: bump the CI pin, after testing 2.1.317 in real development).
+- Decision: `tools/leak-test/claude-pin` installs `@anthropic-ai/claude-code@2.1.317` (lockfile regenerated, all platform entries at 2.1.317), and `TESTED_VERSIONS` gains 2.1.317. 2.1.316 stays on the list as the previous pin. D-100 and D-101 are skipped: an earlier commit message named them.
+- Why: the owner uses and tests the plugin on 2.1.317 (the CLI, the VS Code extension and the desktop app's Code tab, on Windows and on macOS/Linux), and every session start on it showed the "not on the tested list" warning.
+- Rejected: adding 2.1.317 to the list by hand only, with CI left on 2.1.316 (the kit would never run on the version people use).
+- Evidence: `claude --version` 2.1.317 on the maintainer's PC; the kit on the new pin with `--require-pinned` (Windows): baseline 105 of 105 fakes seen, plugin run 0 of 112 across 16 doors, 0 network attempts; `tests/core-lock.test.ts` R-01 failed on 2.1.317 before the change; `tests/release-files.test.ts` ties the pin to the list.
+
+## D-103: The untested-version warning shows on the first 2 session starts per version
+- Date / Step: 2026-11-04 / after 8        Status: accepted (the owner's choice: "isnt once or twice enough?", then "First 2 sessions").
+- Decision: R-01's popup shows on the first 2 session starts with each untested Claude Code version, then stops. `/redact doctor` still says "not on the tested list" every time. The plugin keeps the counts in `$.store` (`versionWarned`): version strings only, at most 20, newest last. A record that can't be read or is damaged counts as empty, so the error is toward showing. Each new untested version warns again.
+- Why: it showed on every session start, and stable 2.1.311 users would see it each time until a release lists their version.
+- Rejected: once per version (easy to miss in one short session); letting `notices: off` hide it (people must find the setting, and it hides other notices); no change.
+- Evidence: `plugin/hooks/handlers.ts` `startUp` called `warn` on every start; `runtime.ts` already keeps `lastGood` in `$.store`; `plugin/hooks/lock.test.ts` "R-01: the warning shows on the first 2 session starts ..." fails with the limit at 99; `tests/core-lock.test.ts` covers damaged records and the cap.
 
 ---
 

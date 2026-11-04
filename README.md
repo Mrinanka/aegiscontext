@@ -30,7 +30,7 @@ Restart the session, then check it is running:
 
 It should say the main lock is running. No `/redact`? Run `/aegiscontext:doctor`: it works even when the hooks don't, and tells you why. Details: [docs/personal.md](docs/personal.md). To pin a version, add `@<tag>` to the repository name.
 
-Requires Claude Code 2.1.309 or later. Tested versions: [docs/tested-versions.md](docs/tested-versions.md).
+Requires Claude Code 2.1.309 or later. Tested in real development work and still being tested with each Claude Code release; the latest tested is 2.1.317. Details: [docs/tested-versions.md](docs/tested-versions.md).
 
 ### Add the backup lock (recommended)
 
