@@ -2,11 +2,13 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org). A change to a default is called out under **Changed defaults**.
 
-## Unreleased
+## 0.1.0-rc.5 (release candidate)
 
 ### Added
 
 - 40 rules of our own for popular keys the Gitleaks set has no rule for: OpenRouter, Groq, xAI, DeepSeek, Replicate, Fireworks, Together, Cerebras, ElevenLabs, LangSmith, Langfuse, Pinecone, Tavily, Supabase (two kinds), Vercel, Docker Hub, Google OAuth client secrets, Stripe webhook secrets, Resend, Neon, Render, Tailscale, Figma, Mem0, Statsig, Exa, Cartesia, E2B, RunPod, Apify, Browserbase, Trigger.dev, Inngest, Unkey, Expo, PostHog, Axiom, Polar and Loops. These keys were hidden only next to a label such as `X_API_KEY=`; now they are hidden bare and as a code argument too (D-105).
+
+No default changed.
 
 ## 0.1.0-rc.4 (release candidate)
 
