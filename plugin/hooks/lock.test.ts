@@ -6,7 +6,7 @@ import { expect, mock, test as kitTest } from 'claude-code/testing'
 
 const FAKE = ['ghp', 'Qw3rTy7UiOp9AsDf1GhJk5LzXc8VbNm2ZxCv'].join('_')
 
-type Options = { settings?: Record<string, unknown>; files?: Record<string, string>; messages?: unknown[]; policy?: Record<string, unknown>; check?: boolean; submit?: boolean; mention?: string[]; compact?: boolean; env?: boolean; mentionNothing?: boolean; version?: string; unreadable?: string[]; links?: Record<string, string>; dirs?: string[]; noSurfaces?: boolean; toolDenies?: boolean; pluginTree?: Record<string, string>; node?: string | false; userExtra?: Record<string, unknown>; home?: string }
+type Options = { settings?: Record<string, unknown>; files?: Record<string, string>; messages?: unknown[]; policy?: Record<string, unknown>; check?: boolean; submit?: boolean; mention?: string[]; compact?: boolean; env?: boolean; mentionNothing?: boolean; version?: string; versionFails?: boolean; unreadable?: string[]; links?: Record<string, string>; dirs?: string[]; noSurfaces?: boolean; toolDenies?: boolean; pluginTree?: Record<string, string>; node?: string | false; userExtra?: Record<string, unknown>; home?: string }
 /** The engine wants absolute paths, so a test's folders follow the system it runs on. */
 let posix = false
 const work = (name = ''): string => (posix ? `/work/${name}` : `D:\\work\\${name}`)
@@ -20,7 +20,7 @@ const test = (name: string, body: Parameters<typeof kitTest>[1]): void => {
 
 const SECRET = ['acme', 'internal', 'Zq93Kd77'].join('-')
 
-type World = { states: unknown[]; stdin: string[]; closed: string[]; clock: { now: number; broken: boolean }; storeDown: { on: boolean; locked?: boolean }; writes: { path: string; text: string }[]; ui: string[]; ran: string[]; files: Record<string, string>; session: ReturnType<typeof mock.session> }
+type World = { states: unknown[]; stdin: string[]; closed: string[]; clock: { now: number; broken: boolean }; storeDown: { on: boolean; locked?: boolean }; writes: { path: string; text: string }[]; ui: string[]; ran: string[]; files: Record<string, string>; storeKeys: string[]; session: ReturnType<typeof mock.session> }
 
 function world(on: On, o: Options = {}): World {
   const writes: World['writes'] = []
@@ -67,7 +67,10 @@ function world(on: On, o: Options = {}): World {
   on('session.id', () => ({ value: 'sess-0002' }))
   on('session.cwd', () => ({ value: work().slice(0, -1) }))
   on('session.surfaces', () => ({ value: o.noSurfaces ? [] : ['terminal'] }))
-  on('session.version', () => ({ value: { version: o.version ?? '2.1.316', base: '2.1.316', builtAt: 'x' } }))
+  on('session.version', () => {
+    if (o.versionFails) throw new Error('no version')
+    return { value: { version: o.version ?? '2.1.316', base: '2.1.316', builtAt: 'x' } }
+  })
   on('session.messages', () => ({ value: o.messages ?? [] }))
   on('settings.read', (_$, e) => ({ value: e.source === 'user' ? { aegisContext: o.settings ?? {}, ...(o.userExtra ?? {}) } : e.source === 'policy' ? (o.policy ?? {}) : {} }))
   /** The plugin's own build folder, wherever the plugin is installed: `<root>/backup/...` reads from `o.pluginTree`. */
@@ -137,8 +140,10 @@ function world(on: On, o: Options = {}): World {
   })
   on('ui.status', () => ({ value: undefined }))
   const store = new Map<string, unknown>()
+  const storeKeys: string[] = []
   on('store.get', (_$, e) => ({ value: store.get(e.key) }))
   on('store.set', (_$, e) => {
+    storeKeys.push(e.key)
     store.set(e.key, e.value)
     return { value: undefined }
   })
@@ -147,7 +152,7 @@ function world(on: On, o: Options = {}): World {
     ran.push(String(e.tool))
     return { result: 'ran' }
   })
-  return { states, stdin, closed, clock, storeDown, writes, ui, ran, files, session }
+  return { states, stdin, closed, clock, storeDown, writes, ui, ran, files, storeKeys, session }
 }
 
 const row = (text: string): SessionAppendInput =>
@@ -1028,28 +1033,81 @@ test('an ordinary file passes the link check', async ($, on) => {
 
 const start = async ($: { session: { start: (i: never) => Promise<unknown> } }): Promise<void> => void (await $.session.start({ cwd: work(), surface: 'terminal', isInteractive: true } as never))
 
-test('R-01: a version not on the tested list warns at start and carries on', async ($, on) => {
+const untested = (w: World): boolean => w.ui.some(l => l.includes('tested list') || l.includes('tested as they come out'))
+/** D-107: doctor names an untested version calmly, with the report link, and lists no fix for it. */
+const calm = (out: string, version: string): void => {
+  expect(out).toContain(`Claude Code: ${version}. New Claude Code versions are tested as they come out; if something looks wrong, please report it: https://github.com/Mrinanka/aegiscontext/issues`)
+  expect(out).not.toContain('not on the tested list')
+  expect(out).not.toContain('self-check on this Claude Code version')
+}
+
+test('R-01: a version not on the tested list shows nothing at start, carries on, and doctor names it calmly with a report link', async ($, on) => {
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   const w = world(on, { version: '9.9.9' })
   await start($)
-  expect(w.ui.some(l => l.includes('9.9.9') && l.includes('not on the tested list') && l.includes('self-check'))).toBe(true)
+  expect(untested(w)).toBe(false)
   await $.session.append(row(`token ${FAKE}`))
   expect(stored(w).includes(FAKE)).toBe(false)
+  calm(await redact($, 'doctor'), '9.9.9')
+  noFake(w)
 })
 
-test('R-01: the warning shows on the first 2 session starts with a version, then only in doctor; a new version warns again', async ($, on) => {
+test('R-01: four starts and a version change show nothing; doctor gives the calm line every time', async ($, on) => {
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   // The world reads the version on each call, so an update is a change to its options.
   const opts = { version: '9.9.9' }
   const w = world(on, opts)
-  const shown = (v: string): number => w.ui.filter(l => l.includes(`${v} is not on the tested list`)).length
-  for (let i = 0; i < 4; i++) await start($)
-  // ui.log and ui.toast each record a shown warning.
-  expect(shown('9.9.9')).toBe(4)
-  expect(await redact($, 'doctor')).toContain('not on the tested list')
+  for (let i = 0; i < 4; i++) {
+    await start($)
+    calm(await redact($, 'doctor'), '9.9.9')
+  }
   opts.version = '9.9.10'
   await start($)
-  expect(shown('9.9.10')).toBe(2)
+  expect(untested(w)).toBe(false)
+  calm(await redact($, 'doctor'), '9.9.10')
+  noFake(w)
+})
+
+test('R-01: a start with an untested version writes no versionWarned record (D-107)', async ($, on) => {
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  const w = world(on, { version: '9.9.9' })
+  await start($)
+  expect(w.storeKeys.includes('versionWarned')).toBe(false)
+  noFake(w)
+})
+
+test('R-01: odd version strings show nothing at start, and the fake is still hidden', async ($, on) => {
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  const opts = { version: '' }
+  const w = world(on, opts)
+  for (const v of ['', 'x'.repeat(500), '__proto__', '9.9.9\r\n', '2.1.∞']) {
+    opts.version = v
+    await start($)
+    expect(untested(w)).toBe(false)
+  }
+  await $.session.append(row(`token ${FAKE}`))
+  expect(stored(w).includes(FAKE)).toBe(false)
+  noFake(w)
+})
+
+test('R-01: a version lookup that fails does not stop the start, and hiding still works', async ($, on) => {
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  const w = world(on, { versionFails: true })
+  await start($)
+  expect(w.writes.some(x => x.text.includes('aegiscontext started'))).toBe(true)
+  await $.session.append(row(`token ${FAKE}`))
+  expect(stored(w).includes(FAKE)).toBe(false)
+  noFake(w)
+})
+
+test('R-01: with the password store down, an untested version still shows nothing at start and doctor gives the calm line', async ($, on) => {
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  const w = world(on, { version: '9.9.9' })
+  w.storeDown.on = true
+  await start($)
+  expect(untested(w)).toBe(false)
+  calm(await redact($, 'doctor'), '9.9.9')
+  noFake(w)
 })
 
 test('R-01: a tested version says nothing', async ($, on) => {
@@ -1057,6 +1115,15 @@ test('R-01: a tested version says nothing', async ($, on) => {
   const w = world(on)
   await start($)
   expect(w.ui.some(l => l.includes('tested list'))).toBe(false)
+})
+
+test('R-01: doctor calls a tested version tested, with no report line (D-107)', async ($, on) => {
+  const w = world(on)
+  const out = await redact($, 'doctor')
+  expect(out).toContain('Claude Code: 2.1.316 (tested).')
+  expect(out).not.toContain('tested as they come out')
+  expect(out).not.toContain('/issues')
+  noFake(w)
 })
 
 const BAND = { plugin: 'aegiscontext', component: 'AbovePrompt', surface: 'terminal', props: { hasSurvey: false, isWorking: false, maxRows: 5, bodyColumns: 60, scroll: { offset: 0, bodyRows: 4 }, view: {} } } as const
@@ -1283,11 +1350,12 @@ test('/redact self-check writes a report only when asked', async ($, on) => {
   expect(w.writes.some(x => x.path.includes('reports'))).toBe(false)
 })
 
-test('/redact doctor says what to do about an untested version and a locked store', async ($, on) => {
+test('/redact doctor gives the report line for an untested version, and says what to do about a locked store', async ($, on) => {
   const w = world(on, { version: '9.9.9', files: { [cfg('aegiscontext', 'store', 'index.dpapi')]: 'cipher' } })
   w.storeDown.locked = true
   const out = await redact($, 'doctor')
-  expect(out).toContain('Run /redact self-check')
+  expect(out).toContain('please report it: https://github.com/Mrinanka/aegiscontext/issues')
+  expect(out).not.toContain('Run /redact self-check')
   expect(out).toContain('Unlock your password store')
 })
 

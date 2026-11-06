@@ -5,7 +5,6 @@
 import type { Args, EngineInterface, SessionAppendInput } from 'claude-code'
 import { COMMAND, takeMask } from './commands.ts'
 import { dropMedia, hasMedia } from './lib/core/media.ts'
-import { nextWarning } from './lib/core/versions.ts'
 import { refreshBackup } from './backup-copy.ts'
 import { emptyCopies } from './mention.ts'
 import { addHidden } from './state.ts'
@@ -292,28 +291,12 @@ export async function startUp($: EngineInterface): Promise<void> {
   await pruneLogs($, rt.settings.log.days)
   await keepBackupCurrent($, rt)
   await emptyCopies($)
-  await versionNotice($)
   if (isObserve(rt)) {
     warn($, 'observe', OBSERVE_BANNER)
     $.ui.status(OBSERVE_BANNER)
   }
   await writeLog($, [{ t: await $.clock.now(), event: 'start', mode: rt.settings.mode, detail: 'aegiscontext started' }], cleaner(rt))
 }
-
-/**
- * R-01 (D-103): an untested Claude Code version warns on its first WARN_SESSIONS session starts, then only in
- * `/redact doctor`. The record holds version strings only. If it can't be read, the warning shows.
- */
-async function versionNotice($: EngineInterface): Promise<void> {
-  const version = (await $.session.version()).version
-  const stored = await $.store.get(VERSION_WARNED).catch(() => undefined)
-  const { line, warned } = nextWarning(version, stored)
-  if (!line) return
-  warn($, 'version', line)
-  await $.store.set(VERSION_WARNED, warned).catch(() => undefined)
-}
-
-const VERSION_WARNED = 'versionWarned'
 
 /** An existing stable copy of the backup lock is brought up to date; a session never creates one (D-068). */
 async function keepBackupCurrent($: EngineInterface, rt: Runtime): Promise<void> {

@@ -2,7 +2,7 @@
 
 Spec: `docs/engineering/spec.md`. Plan: `docs/engineering/plan.md`. Parked work: spec §23.
 
-**Current focus:** Steps 0 to 8 are done, and `v0.1.0-rc.2` is published as a signed pre-release (2026-11-03). Next: the two weeks of daily use and the hand checks, with the other "Before `v0.1.0`" items in `docs/engineering/release-checklist.md`. `v0.1.0-rc.1` stays an unsigned draft release.
+**Current focus:** Step 10 (put-back anywhere and Audit 4, D-106), started from `develop` once step 9 is merged. Steps 0 to 9 are done. The two weeks of daily use and the hand checks, with the other "Before `v0.1.0`" items in `docs/engineering/release-checklist.md`, are still open. `v0.1.0-rc.1` stays an unsigned draft release.
 
 ## Steps
 
@@ -17,7 +17,7 @@ Spec: `docs/engineering/spec.md`. Plan: `docs/engineering/plan.md`. Parked work:
 | 6 | Release + Audit 2 | `step-6` | ☑ |
 | 7 | Fixes before daily use (D-090) | `step-7` | ☑ |
 | 8 | Put secrets back + weekly CI + Audit 3 (D-095) | `step-8` | ☑ |
-| 9 | Version warning in doctor only (D-107) | `step-9` | ☐ |
+| 9 | Version warning in doctor only (D-107) | `step-9` | ☑ |
 | 10 | Put-back anywhere + Audit 4 (D-106) | `step-10` | ☐ |
 
 "Done when" for each step is in `docs/engineering/plan.md`, "The 7 steps".
@@ -369,3 +369,10 @@ Newest last, 3–5 lines each: what exists now and what the next session needs.
 - The draft release was checked as `docs/verify.md` says before the owner published it: both archives `OK` against `SHA256SUMS`; the `.tar.gz` rebuilt from the signed tag on Windows has the published hash (`19473acd…819e`); the archive's `SECURITY.md` holds the fingerprint and `plugin.json` says `0.1.0`. The owner published it as a pre-release (2026-11-03T16:03Z).
 - `docs/release-checklist.md`: the merge into `release` and the signed tag ticked. The weekly line stays open until its first scheduled run on `release`.
 - Next: the two weeks of daily use, the hand checks (the owner asks for exact steps first), and the other "Before `v0.1.0`" items.
+
+### 2026-11-06: step 9 done
+- D-107 accepted (D-103 superseded). The session-start warning for an untested Claude Code version and its `versionWarned` record are gone; `src/core/versions.ts` and its plugin copy export only the list and `isTested`. `/redact doctor` shows the version, and for an untested one a calm line with the issues link and no fix entry. R-01 is reworded, and the session-start warning is parked in spec §23.
+- Tests first: the R-01 tests in `tests/core-lock.test.ts` and `plugin/hooks/lock.test.ts` were changed as plan step 9 item 2 lists. New ones: a session start shows nothing and writes no `versionWarned` for an untested or odd version string; doctor shows the link and no fix.
+- Docs: `docs/troubleshooting.md`, `docs/tested-versions.md` and CHANGELOG (Unreleased) no longer mention the session-start warning.
+- On this tree, Windows, uncommitted: `npm test` 1224 tests (1222 pass, 2 skipped, 0 fail); `claude plugin test ./plugin` 231 of 231; typecheck passes.
+- Next: the owner merges the PR; then step 10 from `develop`.

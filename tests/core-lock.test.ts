@@ -11,7 +11,7 @@ import { isChecked, outboundText, outboundVerdict } from '../src/core/outbound.t
 import { applyEdit, checkOverwrite, placeholdersIn } from '../src/core/guard.ts'
 import { blockedSettingsChange, expandPath, isProtected, isSettingsFile, normalize, shellChangesProtected, type Roots } from '../src/core/protect.ts'
 import { MAX_REGISTERED, MIN_REGISTERED, parseEnv, startsTicked, validRegistered } from '../src/core/envfile.ts'
-import { isTested, nextWarning, versionWarning, WARN_SESSIONS } from '../src/core/versions.ts'
+import { isTested } from '../src/core/versions.ts'
 import { dropMedia, hasMedia } from '../src/core/media.ts'
 import { reportText, runSelfCheck } from '../src/core/selfcheck.ts'
 import type { RowMessage } from '../src/core/rows.ts'
@@ -287,44 +287,15 @@ test('a registered value is 6 to 8,192 characters', () => {
 
 // ---- versions ------------------------------------------------------------------------------
 
-test('R-01: an untested version gives one line; a tested one none', () => {
+test('R-01: the tested list knows its versions', () => {
   assert.equal(isTested('2.1.316'), true)
-  assert.equal(versionWarning('2.1.316'), undefined)
   assert.equal(isTested('2.1.317'), true)
-  assert.equal(versionWarning('2.1.317'), undefined)
-  const w = versionWarning('9.9.9') as string
-  assert.match(w, /9\.9\.9/)
-  assert.ok(!w.includes('\n'))
+  assert.equal(isTested('9.9.9'), false)
 })
 
-test('R-01: an untested version warns on its first 2 session starts only, counted per version', () => {
-  assert.equal(WARN_SESSIONS, 2)
-  const first = nextWarning('9.9.9', undefined)
-  assert.match(first.line ?? '', /9\.9\.9 is not on the tested list/)
-  const second = nextWarning('9.9.9', first.warned)
-  assert.ok(second.line)
-  const third = nextWarning('9.9.9', second.warned)
-  assert.equal(third.line, undefined)
-  assert.deepEqual(third.warned, second.warned)
-  // A Claude Code update to another untested version warns again.
-  assert.ok(nextWarning('9.9.10', third.warned).line)
-  // A tested version never warns and leaves the record alone.
-  const tested = nextWarning('2.1.317', second.warned)
-  assert.equal(tested.line, undefined)
-  assert.deepEqual(tested.warned, second.warned)
-})
-
-test('R-01: a damaged or odd warning record counts as empty, and the record stays small', () => {
-  for (const bad of [null, 'x', 7, {}, [['9.9.9']], [['9.9.9', 'two']], [[1, 2]], [['9.9.9', -1]], [['9.9.9', 1.5]]]) {
-    assert.ok(nextWarning('9.9.9', bad).line, JSON.stringify(bad))
-  }
-  assert.ok(nextWarning('__proto__', undefined).line)
-  let warned: unknown
-  for (let i = 0; i < 50; i++) warned = nextWarning(`9.9.${i}`, warned).warned
-  const kept = warned as [string, number][]
-  assert.ok(kept.length <= 20, `${kept.length} kept`)
-  assert.equal(kept.at(-1)?.[0], '9.9.49')
-  assert.equal(nextWarning('x'.repeat(500), undefined).warned[0]?.[0].length, 32)
+test('R-01: versions.ts has no start-up warning left, only the list and the check (D-107)', async () => {
+  const versions = await import('../src/core/versions.ts')
+  assert.deepEqual(Object.keys(versions).sort(), ['TESTED_VERSIONS', 'isTested'])
 })
 
 // ---- media ---------------------------------------------------------------------------------

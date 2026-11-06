@@ -29,7 +29,7 @@ One step = one session: `/plan-step` → approve → build → `/verify` → `/s
 | 6 | **Release** | A newcomer installs and verifies from the README alone. **Audit 2.** |
 | 7 | **Fixes before daily use** (added after `v0.1.0-rc.1`, D-090) | The backup lock's limits name skill text; `/redact remove` works; no doubled name; the login and observe runs pass in CI. |
 | 8 | **Put secrets back + weekly CI + Audit 3** (added after step 7, D-095) | The rewrite test passes, or the design is changed and approved; put-back works by the settings table, and the leak kit stays clean with it on and off; the weekly run is green; the audits are done; `v0.1.0-rc.2` can be tagged. |
-| 9 | **Version warning in doctor only** (D-107) | A session start with a version not on the tested list shows nothing; `/redact doctor` still says it; R-01, the tests and the docs say the same. |
+| 9 | **Version warning in doctor only** (D-107) | A session start with a version not on the tested list shows nothing; `/redact doctor` shows the version with a report link and lists no fix for it; R-01, the tests and the docs say the same. |
 | 10 | **Put-back anywhere + Audit 4** (D-106) | The auto-mode probe passes, or the design is changed and approved; with put-back on, this session's placeholders are restored through Write, Edit and Bash; the leak kit stays clean with it on and off; the audits are done. |
 
 **Audits** (steps 3, 6, 8 and 10, before `/ship`): built-in `/security-review` and `/code-review high` on the step's diff.
@@ -248,11 +248,11 @@ The design is D-096, accepted on 2026-11-03 after item 1 passed on 3 systems (sp
 
 ## Step 9: Version warning in doctor only
 
-The design is D-107, proposed.
+The design is D-107, accepted.
 
 1. **The rules first.** Mark D-107 accepted and D-103 superseded by D-107. Change spec R-01 to the wording in D-107, and add a session-start warning to spec §23.
-2. **Tests.** The R-01 tests in `tests/core-lock.test.ts` and `plugin/hooks/lock.test.ts` expect the warning at session start. Each change to them needs the maintainer's yes (`CLAUDE.md`). New tests: a session start with an untested version shows nothing; `/redact doctor` still says "not on the tested list".
-3. **Code.** Remove the session-start warning and its `versionWarned` count; `/redact doctor` is unchanged.
+2. **Tests.** The R-01 tests in `tests/core-lock.test.ts` and `plugin/hooks/lock.test.ts` expect the warning at session start. Each change to them needs the maintainer's yes (`CLAUDE.md`). New tests: a session start with an untested version shows nothing; `/redact doctor` shows the version with a report link and no fix for it.
+3. **Code.** Remove the session-start warning and its `versionWarned` count; `/redact doctor` shows an untested version with a report link instead of "not on the tested list" and a fix.
 4. **Docs.** `docs/troubleshooting.md` and `docs/tested-versions.md` no longer mention a session-start warning.
 
 ---
@@ -292,7 +292,7 @@ Targets for speed, catch rate and false alarms are set by the maintainer in Step
 
 | Risk | How we handle it |
 |---|---|
-| A Claude Code update changes how plugins work | Test on a fixed version; publish a tested-versions list; startup warning on untested versions (R-01) |
+| A Claude Code update changes how plugins work | Test on a fixed version; publish a tested-versions list; `/redact doctor` shows an untested version with a report link (R-01, D-107) |
 | A pattern gets stuck and the hook is skipped | Build-time checks, small search areas, speed tests, `.catch` handlers. The backup lock steps in if the plugin goes down. |
 | Too many false alarms, people turn it off | Code set, false-alarm set, observe-mode trials, `/redact allow`, admin locks |
 | A check fails and content passes (default setting) | Visible warning and log entry every time. Admins can switch to `hold`. |

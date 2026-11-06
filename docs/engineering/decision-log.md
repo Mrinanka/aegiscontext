@@ -126,11 +126,11 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
 | D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
 | D-102 | Claude Code 2.1.317 is the pin and joins the tested list | accepted | after 8 | none |
-| D-103 | The untested-version warning shows on the first 2 session starts per version | accepted | after 8 | 4 (R-01) |
+| D-103 | The untested-version warning shows on the first 2 session starts per version | superseded by D-107 | after 8 | 4 (R-01) |
 | D-104 | `aws-access-token` drops Gitleaks' entropy floor | accepted | after 8 | none |
 | D-105 | Own rules for 40 popular keys that Gitleaks lacks | accepted | after 8 | 7 |
 | D-106 | Put-back `on` restores this session's placeholders anywhere: Write, Edit and Bash | proposed | after 8 | 2, 9, 10, 14, 15, 22, 23 |
-| D-107 | An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning | proposed | after 8 | 4 (R-01), 23 |
+| D-107 | An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning | accepted | after 8 | 4 (R-01), 23 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -973,7 +973,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Evidence: `claude --version` 2.1.317 on the maintainer's PC; the kit on the new pin with `--require-pinned` (Windows): baseline 105 of 105 fakes seen, plugin run 0 of 112 across 16 doors, 0 network attempts; `tests/core-lock.test.ts` R-01 failed on 2.1.317 before the change; `tests/release-files.test.ts` ties the pin to the list.
 
 ## D-103: The untested-version warning shows on the first 2 session starts per version
-- Date / Step: 2026-11-04 / after 8        Status: accepted (the owner's choice: "isnt once or twice enough?", then "First 2 sessions").
+- Date / Step: 2026-11-04 / after 8        Status: superseded by D-107 (the owner's choice: "isnt once or twice enough?", then "First 2 sessions").
 - Decision: R-01's popup shows on the first 2 session starts with each untested Claude Code version, then stops. `/redact doctor` still says "not on the tested list" every time. The plugin keeps the counts in `$.store` (`versionWarned`): version strings only, at most 20, newest last. A record that can't be read or is damaged counts as empty, so the error is toward showing. Each new untested version warns again.
 - Why: it showed on every session start, and stable 2.1.311 users would see it each time until a release lists their version.
 - Rejected: once per version (easy to miss in one short session); letting `notices: off` hide it (people must find the setting, and it hides other notices); no change.
@@ -1007,11 +1007,12 @@ Tiny clarifications go under **Minor** at the bottom.
 - Evidence: decision-log D-096 (lines 921-934); spec §9 (line 244), §10 (lines 253-294), §22 (lines 509-516), §23 (line 540); `src/core/putback.ts:44-52`; `plugin/hooks/putback.ts:75-90`; `plugin/hooks/commands.ts:326`; all read on 2026-11-06.
 
 ## D-107: An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning
-- Date / Step: 2026-11-06 / after 8        Status: proposed.
-- Context: This reopens D-103 (the warning on the first 2 session starts per untested version) and would supersede it. R-01 changes from "must show a one-line warning at session start" to: "`/redact doctor` must say when the Claude Code version is not on the tested list, and the tool keeps working. Nothing is shown at session start (D-107)." A session-start warning goes to spec §23.
-- Decision: no warning at session start for a version not on the tested list. `/redact doctor` keeps its line ("not on the tested list") and its fix ("Run /redact self-check on this Claude Code version", `plugin/hooks/commands.ts:305` and `:317`), unchanged. The `versionWarned` record in `$.store` (D-103) is no longer written.
-- To change when built: `src/core/versions.ts` and its plugin copy (the start-up text and `WARN_SESSIONS`); `plugin/hooks/handlers.ts:304` (`startUp`); tests `tests/core-lock.test.ts:290`, `:300`, `:317` and `plugin/hooks/lock.test.ts:1031`, `:1040`, `:1055`; spec §4 (R-01, line 60) and §23; `docs/troubleshooting.md:30` ("pops up on the first two sessions") and `docs/tested-versions.md:3` ("the session-start warning").
-- Evidence: D-103; spec R-01 (line 60); the files and lines above, read on 2026-11-06.
+- Date / Step: 2026-11-06 / after 8        Status: accepted.
+- Context: This reopens D-103 (the warning on the first 2 session starts per untested version) and supersedes it. R-01 changes from "must show a one-line warning at session start" to: "`/redact doctor` must show the Claude Code version. For a version not on the tested list it says that new versions are tested as they come out and asks the person to report anything that looks wrong (the issues link); it lists nothing to fix, and the tool keeps working. Nothing is shown at session start (D-107)." A session-start warning goes to spec §23.
+- Decision: no warning at session start for a version not on the tested list. The `versionWarned` record in `$.store` (D-103) is no longer written. In `/redact doctor`, such a version reads "Claude Code: <version>. New Claude Code versions are tested as they come out; if something looks wrong, please report it: https://github.com/Mrinanka/aegiscontext/issues". It no longer says "not on the tested list" and adds nothing under "To fix" (the "Run /redact self-check on this Claude Code version" entry goes, `plugin/hooks/commands.ts:305` and `:317`). A tested version still reads "Claude Code: <version> (tested).".
+- Rejected: doctor's old line and fix unchanged; the calm line plus a self-check suggestion; the version alone in doctor, with the message and link only in the docs.
+- To change when built: `src/core/versions.ts` and its plugin copy (the start-up text and `WARN_SESSIONS`); `plugin/hooks/handlers.ts:304` (`startUp`); `plugin/hooks/commands.ts:305` and `:317` (doctor); tests `tests/core-lock.test.ts:290`, `:300`, `:317` and `plugin/hooks/lock.test.ts:1031`, `:1040`, `:1055`; spec §4 (R-01, line 60) and §23; `docs/troubleshooting.md:30` ("pops up on the first two sessions") and `docs/tested-versions.md:3` ("the session-start warning").
+- Evidence: D-103; spec R-01 (line 60); the files and lines above; `package.json:6` (the repo); `.github/ISSUE_TEMPLATE/bug_report.yml` (asks for doctor output); `docs/tested-versions.md:5`; all read on 2026-11-06.
 
 ---
 
