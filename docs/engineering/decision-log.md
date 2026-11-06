@@ -129,6 +129,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-103 | The untested-version warning shows on the first 2 session starts per version | accepted | after 8 | 4 (R-01) |
 | D-104 | `aws-access-token` drops Gitleaks' entropy floor | accepted | after 8 | none |
 | D-105 | Own rules for 40 popular keys that Gitleaks lacks | accepted | after 8 | 7 |
+| D-106 | Put-back `on` restores this session's placeholders anywhere: Write, Edit and Bash | proposed | after 8 | 2, 9, 10, 14, 15, 22, 23 |
 | D-107 | An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning | proposed | after 8 | 4 (R-01), 23 |
 
 ## Entry template (short form, from D-018 on)
@@ -992,6 +993,18 @@ Tiny clarifications go under **Minor** at the bottom.
 - Why: an OpenRouter key pasted into a prompt reached the model in full. Gitleaks v8.30.1 (master has the same 222 ids, checked 2026-11-04) has no rule for it or for 22 other popular AI and developer platforms, so those keys were hidden only next to a label.
 - Rejected: patching the vendored Gitleaks file (it is pinned and hashed, and an upstream bump would lose the change); leaving the four short-prefix rules out (the owner asked for them; shape and entropy guards keep identifiers such as `re_match_group` and `fw_version_major` alone).
 - Evidence: `tests/checker-own-rules.test.ts` (per rule: a sample from its pattern is found, a near miss is not, worst case under 1,500 ms; a fake found bare, in an env line, in JSON and as a code argument; false-alarm guards; no hit in the false-alarm set). `npm run measure`: catch set 135 of 138, false alarms 5.55, 76.30 and 214.33 per MB, all unchanged. Several formats are from third-party pages or memory, with loose lower bounds (see progress, Known issues).
+
+## D-106: Put-back `on` restores this session's placeholders anywhere: Write, Edit and Bash
+- Date / Step: 2026-11-06 / after 8        Status: proposed. Accepted only after the auto-mode probe passes (below); the spec is edited then, not before.
+- Context: This reopens D-096's rejected "restoring into any file Claude writes", the "Bash can't restore" rule (spec §10, D-096 item 5) and the Bash part of spec §23's v2 list. It would change spec §10 (the "already holds it" rule and the copy limit), §9 (the instructions note), §14, §15, §22 and §23, R-09, R-11, and the put-back exception in `CLAUDE.md`, which names "a file that already holds it".
+- Decision:
+  1. **`on` restores anywhere.** While put-back is on, a placeholder from this session is replaced by its value wherever Claude writes it, in any file through Write or Edit and in a command's text through Bash. The "already holds it" rule and the copy limit go. The release notes state that `on` now does this.
+  2. **This session only.** A placeholder from an earlier session stays as text.
+  3. **A repo's `on`** still counts for people who made no choice of their own (spec §10 table, unchanged order). Its warning says that secrets can go anywhere, network included, and shows once per repo instead of once per session; `/redact` and `/redact doctor` keep showing it. The "seen" mark is kept in `put-back.json` beside the folder choices (a path, no value); to be confirmed in the build plan.
+  4. **Unchanged:** off by default; a managed `off`, a project `off` and the developer's own choice win; Claude can't turn it on or off (R-18); observe mode restores nothing; every restore is logged by tag and count only (R-17).
+- The docs state: a tricked Claude (prompt injection) can put a value in a tracked file that gets pushed, or in a command that sends it over the network, and nothing stops it; the outbound check (spec §11) sees only the placeholder Claude wrote. A repo's `on` turns this on for anyone who never chose, with one warning. A bare random value (`openssl rand`) is never recognized, so it never becomes a placeholder: make and store such values in one command that prints nothing.
+- Gate, the auto-mode probe: spike S7 ran under `claude -p` only (findings-step0, line 81). Auto mode has a permission classifier, which is a model; if it reviews the rewritten input, a model sees the value. That also concerns put-back as it ships today. The probe: a scratch mod like S7's rewrites a harmless marker into a Bash command and a Write, run in auto mode against the kit's mock; pass if no request holds the marker. Unverified: whether auto mode runs against the mock at all.
+- Evidence: decision-log D-096 (lines 921-934); spec §9 (line 244), §10 (lines 253-294), §22 (lines 509-516), §23 (line 540); `src/core/putback.ts:44-52`; `plugin/hooks/putback.ts:75-90`; `plugin/hooks/commands.ts:326`; all read on 2026-11-06.
 
 ## D-107: An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning
 - Date / Step: 2026-11-06 / after 8        Status: proposed.
