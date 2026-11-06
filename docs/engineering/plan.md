@@ -3,7 +3,7 @@
 How we build the tool described in `spec.md`, and how we prove it works.
 
 - **Status:** draft.
-- **Last updated:** 2 November 2026 (step 8, D-095, D-096; step 7, D-090; signed tags, D-094; earlier: step 3 hooks, D-042; 7 steps, D-018; scope cuts, D-019).
+- **Last updated:** 6 November 2026 (steps 9 and 10, D-107, D-106; step 8, D-095, D-096; step 7, D-090; signed tags, D-094; earlier: step 3 hooks, D-042; 7 steps, D-018; scope cuts, D-019).
 
 ---
 
@@ -29,8 +29,10 @@ One step = one session: `/plan-step` → approve → build → `/verify` → `/s
 | 6 | **Release** | A newcomer installs and verifies from the README alone. **Audit 2.** |
 | 7 | **Fixes before daily use** (added after `v0.1.0-rc.1`, D-090) | The backup lock's limits name skill text; `/redact remove` works; no doubled name; the login and observe runs pass in CI. |
 | 8 | **Put secrets back + weekly CI + Audit 3** (added after step 7, D-095) | The rewrite test passes, or the design is changed and approved; put-back works by the settings table, and the leak kit stays clean with it on and off; the weekly run is green; the audits are done; `v0.1.0-rc.2` can be tagged. |
+| 9 | **Version warning in doctor only** (D-107) | A session start with a version not on the tested list shows nothing; `/redact doctor` still says it; R-01, the tests and the docs say the same. |
+| 10 | **Put-back anywhere + Audit 4** (D-106) | The auto-mode probe passes, or the design is changed and approved; with put-back on, this session's placeholders are restored through Write, Edit and Bash; the leak kit stays clean with it on and off; the audits are done. |
 
-**Audits** (steps 3, 6 and 8, before `/ship`): built-in `/security-review` and `/code-review high` on the step's diff.
+**Audits** (steps 3, 6, 8 and 10, before `/ship`): built-in `/security-review` and `/code-review high` on the step's diff.
 
 ## Ground rules
 
@@ -241,6 +243,32 @@ The design is D-096, accepted on 2026-11-03 after item 1 passed on 3 systems (sp
 | Nothing | On | Off | Off |
 | Nothing | Off | On | Off, because the developer's choice wins |
 | Off | Anything | Anything | Off |
+
+---
+
+## Step 9: Version warning in doctor only
+
+The design is D-107, proposed.
+
+1. **The rules first.** Mark D-107 accepted and D-103 superseded by D-107. Change spec R-01 to the wording in D-107, and add a session-start warning to spec §23.
+2. **Tests.** The R-01 tests in `tests/core-lock.test.ts` and `plugin/hooks/lock.test.ts` expect the warning at session start. Each change to them needs the maintainer's yes (`CLAUDE.md`). New tests: a session start with an untested version shows nothing; `/redact doctor` still says "not on the tested list".
+3. **Code.** Remove the session-start warning and its `versionWarned` count; `/redact doctor` is unchanged.
+4. **Docs.** `docs/troubleshooting.md` and `docs/tested-versions.md` no longer mention a session-start warning.
+
+---
+
+## Step 10: Put-back anywhere and Audit 4
+
+The design is D-106, proposed until item 1 passes. It stays off by default.
+
+1. **Probe first.** Does auto mode's permission classifier see a restored value? A scratch mod in `experiments/` rewrites a harmless marker into a Bash command and a Write; the maintainer runs it by hand in auto mode against the leak kit's mock. Pass: no request holds the marker. The result goes in `findings-step0.md`. If it fails, put-back as it ships has the same problem: record it in progress, Known issues, and stop for a redesign before any feature code.
+2. **Then the rules.** Only after item 1 passes: mark D-106 accepted, then change spec §2, §9, §10, §14, §15, §22, §23, R-09 and R-11, and the put-back exception in `CLAUDE.md`.
+3. **Restore anywhere.** While put-back is on, a placeholder from this session is replaced by its value in any file through Write or Edit, and in a command's text through Bash. A placeholder from an earlier session stays as text.
+4. **The repo notice.** New text: secrets can go anywhere, network included. Shown once per repo, even with `notices: off`; `/redact` and `/redact doctor` keep showing it.
+5. **Unchanged.** The order in spec §10, observe mode, R-17 and R-18, and the backup lock refusing these writes.
+6. **Docs and release notes.** State that `on` now restores anywhere, the risks listed in D-106, and that freshly made random values must be made and stored in one command that prints nothing.
+7. **Leak kit.** Clean with put-back on and off.
+8. **Audit 4.** `/security-review` and `/code-review high` on the step's diff.
 
 ---
 

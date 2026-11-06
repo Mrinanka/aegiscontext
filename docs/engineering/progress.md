@@ -17,6 +17,8 @@ Spec: `docs/engineering/spec.md`. Plan: `docs/engineering/plan.md`. Parked work:
 | 6 | Release + Audit 2 | `step-6` | ☑ |
 | 7 | Fixes before daily use (D-090) | `step-7` | ☑ |
 | 8 | Put secrets back + weekly CI + Audit 3 (D-095) | `step-8` | ☑ |
+| 9 | Version warning in doctor only (D-107) | `step-9` | ☐ |
+| 10 | Put-back anywhere + Audit 4 (D-106) | `step-10` | ☐ |
 
 "Done when" for each step is in `docs/engineering/plan.md`, "The 7 steps".
 

@@ -129,6 +129,7 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-103 | The untested-version warning shows on the first 2 session starts per version | accepted | after 8 | 4 (R-01) |
 | D-104 | `aws-access-token` drops Gitleaks' entropy floor | accepted | after 8 | none |
 | D-105 | Own rules for 40 popular keys that Gitleaks lacks | accepted | after 8 | 7 |
+| D-107 | An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning | proposed | after 8 | 4 (R-01), 23 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -991,6 +992,13 @@ Tiny clarifications go under **Minor** at the bottom.
 - Why: an OpenRouter key pasted into a prompt reached the model in full. Gitleaks v8.30.1 (master has the same 222 ids, checked 2026-11-04) has no rule for it or for 22 other popular AI and developer platforms, so those keys were hidden only next to a label.
 - Rejected: patching the vendored Gitleaks file (it is pinned and hashed, and an upstream bump would lose the change); leaving the four short-prefix rules out (the owner asked for them; shape and entropy guards keep identifiers such as `re_match_group` and `fw_version_major` alone).
 - Evidence: `tests/checker-own-rules.test.ts` (per rule: a sample from its pattern is found, a near miss is not, worst case under 1,500 ms; a fake found bare, in an env line, in JSON and as a code argument; false-alarm guards; no hit in the false-alarm set). `npm run measure`: catch set 135 of 138, false alarms 5.55, 76.30 and 214.33 per MB, all unchanged. Several formats are from third-party pages or memory, with loose lower bounds (see progress, Known issues).
+
+## D-107: An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning
+- Date / Step: 2026-11-06 / after 8        Status: proposed.
+- Context: This reopens D-103 (the warning on the first 2 session starts per untested version) and would supersede it. R-01 changes from "must show a one-line warning at session start" to: "`/redact doctor` must say when the Claude Code version is not on the tested list, and the tool keeps working. Nothing is shown at session start (D-107)." A session-start warning goes to spec §23.
+- Decision: no warning at session start for a version not on the tested list. `/redact doctor` keeps its line ("not on the tested list") and its fix ("Run /redact self-check on this Claude Code version", `plugin/hooks/commands.ts:305` and `:317`), unchanged. The `versionWarned` record in `$.store` (D-103) is no longer written.
+- To change when built: `src/core/versions.ts` and its plugin copy (the start-up text and `WARN_SESSIONS`); `plugin/hooks/handlers.ts:304` (`startUp`); tests `tests/core-lock.test.ts:290`, `:300`, `:317` and `plugin/hooks/lock.test.ts:1031`, `:1040`, `:1055`; spec §4 (R-01, line 60) and §23; `docs/troubleshooting.md:30` ("pops up on the first two sessions") and `docs/tested-versions.md:3` ("the session-start warning").
+- Evidence: D-103; spec R-01 (line 60); the files and lines above, read on 2026-11-06.
 
 ---
 

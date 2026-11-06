@@ -7,7 +7,7 @@ Spec: @docs/engineering/spec.md. Plan: @docs/engineering/plan.md. Progress: docs
 
 - 7 steps (`docs/engineering/plan.md`, "The 7 steps"); one step per session.
 - Loop: `/plan-step` (in plan mode) → I approve → tests first, then code → `/verify` → fix → `/ship` → `/clear`.
-- Steps 3, 6 and 8 end with an audit: `/security-review` and `/code-review high` before `/ship`.
+- Steps 3, 6, 8 and 10 end with an audit: `/security-review` and `/code-review high` before `/ship`.
 - If a step spans sessions, commit a `step <n> (wip): ...` checkpoint when I ask; no PR until `/ship`.
 - Spec and plan: propose a change, edit only after I say yes, and log it as a decision.
 - Parked features go to spec §23; bugs and unfinished bits go to progress "Known issues". Nothing deferred lives only in session notes.
