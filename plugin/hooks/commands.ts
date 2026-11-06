@@ -30,6 +30,8 @@ export const REMOVE_PANE = 'aegiscontext-remove'
 
 const USAGE = 'Use: /redact, /redact add [--label name], /redact learn, /redact remove, /redact allow [tag] [--always], /redact put-back [on|off] [--here], /redact backup [managed], /redact self-check [--report], /redact doctor.'
 const PUT_BACK_USAGE = 'Use: /redact put-back to see the state, /redact put-back on, /redact put-back off, and add --here for this folder only.'
+/** R-01 (D-107): a version not on the tested list is named calmly, with where to report a problem, and is not a fix. */
+const NEW_VERSION_NOTE = 'New Claude Code versions are tested as they come out; if something looks wrong, please report it: https://github.com/Mrinanka/aegiscontext/issues'
 const MAX_DEPTH = 3
 const MAX_FILE = 1024 * 1024
 const MAX_REMOVE_ROWS = 200
@@ -302,7 +304,6 @@ export async function doctor($: EngineInterface): Promise<string> {
   const hooksSet = mine.found || managedHooks.found
   const guard = await guardLines($, Object.keys(policy).length > 0)
   const fix: string[] = []
-  if (!isTested(version)) fix.push('Run /redact self-check on this Claude Code version.')
   if (guard.fix) fix.push(guard.fix)
   if (store?.status === 'missing') fix.push('Install a password store (Linux: libsecret-tools and a keyring) to keep saved secrets.')
   if (store?.status === 'locked') fix.push('Unlock your password store; saved secrets are not being hidden until then.')
@@ -314,7 +315,7 @@ export async function doctor($: EngineInterface): Promise<string> {
   if (hooksSet && state?.hasSource && !state.installed) fix.push('The backup hooks are set, but their copy is missing here: run /redact backup.')
   if (state?.installed && !state.current) fix.push('The backup lock copy is out of date; it refreshes at the next session start, or run /redact backup now.')
   return [
-    `Claude Code: ${version} (${isTested(version) ? 'tested' : 'not on the tested list'}).`,
+    isTested(version) ? `Claude Code: ${version} (tested).` : `Claude Code: ${version}. ${NEW_VERSION_NOTE}`,
     `Install: ${managedInstall(policy) ? 'Managed settings are present' : 'Personal mode'}.`,
     ...guard.lines,
     'Main lock hooks: running (this answer came from a hook).',

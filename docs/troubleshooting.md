@@ -25,9 +25,9 @@ Claude Code's built-in guard routes instruction files, hook context, skill text,
 
 Until it works, shapes and labels are still hidden; saved secrets are not hidden by value.
 
-## doctor says Claude Code is not on the tested list
+## A new Claude Code version
 
-It keeps working. The warning pops up on the first two sessions with a new Claude Code version, then only doctor says it. Run `/redact self-check` and, if it passes, carry on. Tested versions: [tested-versions.md](tested-versions.md).
+It keeps working. New Claude Code versions are tested as they come out. If something looks wrong, please [report it](https://github.com/Mrinanka/aegiscontext/issues). Tested versions: [tested-versions.md](tested-versions.md).
 
 ## Too many false alarms
 

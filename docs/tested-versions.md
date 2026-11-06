@@ -1,6 +1,6 @@
 # Tested versions
 
-AegisContext hooks into Claude Code, so it is only as good as the Claude Code it was tested with. This list is published with each release and is the same list `/redact doctor` and the session-start warning use (`src/core/versions.ts`).
+AegisContext hooks into Claude Code, so it is only as good as the Claude Code it was tested with. This list is published with each release and is the same list `/redact doctor` uses (`src/core/versions.ts`).
 
 AegisContext is tested in real day-to-day development by its maintainer, and that testing goes on with each new Claude Code release. The latest is 2.1.318: in the terminal, the VS Code extension and the desktop app's Code tab, on Windows and on macOS/Linux, hiding works as expected.
 
@@ -31,7 +31,7 @@ Step 8 added `leak-test:put-back` and `leak-test:put-back-off` (20 doors each, 0
 
 The **weekly run** (`.github/workflows/weekly.yml`) tries the newest Claude Code every week as an early warning, ahead of the maintainer's own testing.
 
-The pinned version is the one in `tools/leak-test/claude-pin/package-lock.json`. A newer Claude Code keeps working. Its first two sessions show a one-line warning, and `/redact doctor` keeps saying it until the version joins this list; run `/redact self-check` and, if you can, the kit.
+The pinned version is the one in `tools/leak-test/claude-pin/package-lock.json`. A newer Claude Code keeps working. New versions are tested as they come out and join this list; if something looks wrong before then, please [report it](https://github.com/Mrinanka/aegiscontext/issues). To check it yourself, run `/redact self-check` and, if you can, the kit.
 
 ## Not supported
 

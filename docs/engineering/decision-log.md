@@ -126,9 +126,11 @@ Tiny clarifications go under **Minor** at the bottom.
 | D-098 | Audit 3 fixes: guard after Read, paths as Claude Code reads them, put-back fails off | accepted | 8 | 10, 17, 22 |
 | D-099 | CI runs on pull requests into, and pushes to, `develop` and `release` only | accepted | 8 | none |
 | D-102 | Claude Code 2.1.317 is the pin and joins the tested list | accepted | after 8 | none |
-| D-103 | The untested-version warning shows on the first 2 session starts per version | accepted | after 8 | 4 (R-01) |
+| D-103 | The untested-version warning shows on the first 2 session starts per version | superseded by D-107 | after 8 | 4 (R-01) |
 | D-104 | `aws-access-token` drops Gitleaks' entropy floor | accepted | after 8 | none |
 | D-105 | Own rules for 40 popular keys that Gitleaks lacks | accepted | after 8 | 7 |
+| D-106 | Put-back `on` restores this session's placeholders anywhere: Write, Edit and Bash | proposed | after 8 | 2, 9, 10, 14, 15, 22, 23 |
+| D-107 | An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning | accepted | after 8 | 4 (R-01), 23 |
 
 ## Entry template (short form, from D-018 on)
 
@@ -971,7 +973,7 @@ Tiny clarifications go under **Minor** at the bottom.
 - Evidence: `claude --version` 2.1.317 on the maintainer's PC; the kit on the new pin with `--require-pinned` (Windows): baseline 105 of 105 fakes seen, plugin run 0 of 112 across 16 doors, 0 network attempts; `tests/core-lock.test.ts` R-01 failed on 2.1.317 before the change; `tests/release-files.test.ts` ties the pin to the list.
 
 ## D-103: The untested-version warning shows on the first 2 session starts per version
-- Date / Step: 2026-11-04 / after 8        Status: accepted (the owner's choice: "isnt once or twice enough?", then "First 2 sessions").
+- Date / Step: 2026-11-04 / after 8        Status: superseded by D-107 (the owner's choice: "isnt once or twice enough?", then "First 2 sessions").
 - Decision: R-01's popup shows on the first 2 session starts with each untested Claude Code version, then stops. `/redact doctor` still says "not on the tested list" every time. The plugin keeps the counts in `$.store` (`versionWarned`): version strings only, at most 20, newest last. A record that can't be read or is damaged counts as empty, so the error is toward showing. Each new untested version warns again.
 - Why: it showed on every session start, and stable 2.1.311 users would see it each time until a release lists their version.
 - Rejected: once per version (easy to miss in one short session); letting `notices: off` hide it (people must find the setting, and it hides other notices); no change.
@@ -991,6 +993,26 @@ Tiny clarifications go under **Minor** at the bottom.
 - Why: an OpenRouter key pasted into a prompt reached the model in full. Gitleaks v8.30.1 (master has the same 222 ids, checked 2026-11-04) has no rule for it or for 22 other popular AI and developer platforms, so those keys were hidden only next to a label.
 - Rejected: patching the vendored Gitleaks file (it is pinned and hashed, and an upstream bump would lose the change); leaving the four short-prefix rules out (the owner asked for them; shape and entropy guards keep identifiers such as `re_match_group` and `fw_version_major` alone).
 - Evidence: `tests/checker-own-rules.test.ts` (per rule: a sample from its pattern is found, a near miss is not, worst case under 1,500 ms; a fake found bare, in an env line, in JSON and as a code argument; false-alarm guards; no hit in the false-alarm set). `npm run measure`: catch set 135 of 138, false alarms 5.55, 76.30 and 214.33 per MB, all unchanged. Several formats are from third-party pages or memory, with loose lower bounds (see progress, Known issues).
+
+## D-106: Put-back `on` restores this session's placeholders anywhere: Write, Edit and Bash
+- Date / Step: 2026-11-06 / after 8        Status: proposed. Accepted only after the auto-mode probe passes (below); the spec is edited then, not before.
+- Context: This reopens D-096's rejected "restoring into any file Claude writes", the "Bash can't restore" rule (spec §10, D-096 item 5) and the Bash part of spec §23's v2 list. It would change spec §10 (the "already holds it" rule and the copy limit), §9 (the instructions note), §14, §15, §22 and §23, R-09, R-11, and the put-back exception in `CLAUDE.md`, which names "a file that already holds it".
+- Decision:
+  1. **`on` restores anywhere.** While put-back is on, a placeholder from this session is replaced by its value wherever Claude writes it, in any file through Write or Edit and in a command's text through Bash. The "already holds it" rule and the copy limit go. The release notes state that `on` now does this.
+  2. **This session only.** A placeholder from an earlier session stays as text.
+  3. **A repo's `on`** still counts for people who made no choice of their own (spec §10 table, unchanged order). Its warning says that secrets can go anywhere, network included, and shows once per repo instead of once per session; `/redact` and `/redact doctor` keep showing it. The "seen" mark is kept in `put-back.json` beside the folder choices (a path, no value); to be confirmed in the build plan.
+  4. **Unchanged:** off by default; a managed `off`, a project `off` and the developer's own choice win; Claude can't turn it on or off (R-18); observe mode restores nothing; every restore is logged by tag and count only (R-17).
+- The docs state: a tricked Claude (prompt injection) can put a value in a tracked file that gets pushed, or in a command that sends it over the network, and nothing stops it; the outbound check (spec §11) sees only the placeholder Claude wrote. A repo's `on` turns this on for anyone who never chose, with one warning. A bare random value (`openssl rand`) is never recognized, so it never becomes a placeholder: make and store such values in one command that prints nothing.
+- Gate, the auto-mode probe: spike S7 ran under `claude -p` only (findings-step0, line 81). Auto mode has a permission classifier, which is a model; if it reviews the rewritten input, a model sees the value. That also concerns put-back as it ships today. The probe: a scratch mod like S7's rewrites a harmless marker into a Bash command and a Write, run in auto mode against the kit's mock; pass if no request holds the marker. Unverified: whether auto mode runs against the mock at all.
+- Evidence: decision-log D-096 (lines 921-934); spec §9 (line 244), §10 (lines 253-294), §22 (lines 509-516), §23 (line 540); `src/core/putback.ts:44-52`; `plugin/hooks/putback.ts:75-90`; `plugin/hooks/commands.ts:326`; all read on 2026-11-06.
+
+## D-107: An untested Claude Code version is reported in `/redact doctor` only, with no session-start warning
+- Date / Step: 2026-11-06 / after 8        Status: accepted.
+- Context: This reopens D-103 (the warning on the first 2 session starts per untested version) and supersedes it. R-01 changes from "must show a one-line warning at session start" to: "`/redact doctor` must show the Claude Code version. For a version not on the tested list it says that new versions are tested as they come out and asks the person to report anything that looks wrong (the issues link); it lists nothing to fix, and the tool keeps working. Nothing is shown at session start (D-107)." A session-start warning goes to spec §23.
+- Decision: no warning at session start for a version not on the tested list. The `versionWarned` record in `$.store` (D-103) is no longer written. In `/redact doctor`, such a version reads "Claude Code: <version>. New Claude Code versions are tested as they come out; if something looks wrong, please report it: https://github.com/Mrinanka/aegiscontext/issues". It no longer says "not on the tested list" and adds nothing under "To fix" (the "Run /redact self-check on this Claude Code version" entry goes, `plugin/hooks/commands.ts:305` and `:317`). A tested version still reads "Claude Code: <version> (tested).".
+- Rejected: doctor's old line and fix unchanged; the calm line plus a self-check suggestion; the version alone in doctor, with the message and link only in the docs.
+- To change when built: `src/core/versions.ts` and its plugin copy (the start-up text and `WARN_SESSIONS`); `plugin/hooks/handlers.ts:304` (`startUp`); `plugin/hooks/commands.ts:305` and `:317` (doctor); tests `tests/core-lock.test.ts:290`, `:300`, `:317` and `plugin/hooks/lock.test.ts:1031`, `:1040`, `:1055`; spec §4 (R-01, line 60) and §23; `docs/troubleshooting.md:30` ("pops up on the first two sessions") and `docs/tested-versions.md:3` ("the session-start warning").
+- Evidence: D-103; spec R-01 (line 60); the files and lines above; `package.json:6` (the repo); `.github/ISSUE_TEMPLATE/bug_report.yml` (asks for doctor output); `docs/tested-versions.md:5`; all read on 2026-11-06.
 
 ---
 

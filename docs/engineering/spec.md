@@ -55,9 +55,9 @@ When a developer types a message, or Claude reads a file or command output, the 
 | **Surfaces** | The Claude Code terminal, the VS Code extension and the Code tab of the desktop app. Scripted runs (`claude -p`) too. |
 | **Not covered** | claude.ai chat. Claude Code on the web and Agent SDK hosts, unless listed in the tested-versions list. Plugins are not available in the desktop app's WSL sessions (checked in the app, step 6). |
 | **Systems** | macOS, Windows and Linux, all first-class. That includes WSL and devcontainers. CI runs on all three. |
-| **Claude Code versions** | A **tested versions** list is published with each release (section 20). v1 supports the Claude Code version pinned for testing (and newer, with the R-01 warning). Hunting for the lowest working version is parked (section 23, D-019). Earlier figures (2.1.287 for mods, 2.1.295 for "block if this check fails") were never checked, and won't be in v1 (section 23). Step 0 was checked against 2.1.316. The VS Code extension runs its own copy of Claude Code, which can be a different version from the CLI (2.1.314 when the CLI was 2.1.316); the tested-versions list names both. |
+| **Claude Code versions** | A **tested versions** list is published with each release (section 20). v1 supports the Claude Code version pinned for testing (and newer: `/redact doctor` asks the person to report anything that looks wrong, R-01). Hunting for the lowest working version is parked (section 23, D-019). Earlier figures (2.1.287 for mods, 2.1.295 for "block if this check fails") were never checked, and won't be in v1 (section 23). Step 0 was checked against 2.1.316. The VS Code extension runs its own copy of Claude Code, which can be a different version from the CLI (2.1.314 when the CLI was 2.1.316); the tested-versions list names both. |
 
-- **R-01** At session start, the tool **must** show a one-line warning when the Claude Code version is not on its tested list, and keep working. It shows on the first 2 session starts with each such version; after that, `/redact doctor` still says it every time (D-103).
+- **R-01** `/redact doctor` **must** show the Claude Code version. For a version not on the tested list it says that new versions are tested as they come out and asks the person to report anything that looks wrong (the issues link); it lists nothing to fix, and the tool keeps working. Nothing is shown at session start (D-107).
 
 ## 5. How it is built: a main lock and a backup lock
 
@@ -533,6 +533,7 @@ The single list of everything not being built now. Anything deferred during a bu
 - Large downloaded false-alarm corpus · the `.ts` files in `node_modules/typescript` and `node_modules/@types/node` are a known-license set with no download · D-019
 - Full compatibility matrix (versions × OS × surface) · one pinned version on 3 OSes is enough for v1 · D-019
 - "Looks random" check (entropy-style, old §7.3) · was already "later in v1"; ship only if it catches more without many more false alarms; credit any outside code (§21) · D-019
+- A session-start warning for a Claude Code version not on the tested list · `/redact doctor` shows the version with a report link (R-01) · D-107
 
 **v2 candidates:**
 

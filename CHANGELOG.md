@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org). A change to a default is called out under **Changed defaults**.
 
+## Unreleased
+
+### Changed
+
+- A Claude Code version not on the tested list no longer shows a warning at session start. `/redact doctor` no longer lists it as something to fix: it says new Claude Code versions are tested as they come out and links to where to report a problem (D-107).
+
 ## 0.1.0-rc.5 (release candidate)
 
 ### Added
